@@ -1,0 +1,20 @@
+{
+  "name": "Tracker — Seyon",
+  "short_name": "Tracker",
+  "description": "Personal task tracker",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%23000'/><text y='.85em' font-size='360' x='50%' text-anchor='middle' fill='white'>%E2%9C%93</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

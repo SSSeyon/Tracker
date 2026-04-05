@@ -1,0 +1,15 @@
+# Service worker — never cache, always fresh
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Manifest — short cache
+/manifest.json
+  Cache-Control: public, max-age=86400
+
+# HTML — revalidate on each visit
+/index.html
+  Cache-Control: no-cache
+
+# Everything else — cache for a week
+/*
+  Cache-Control: public, max-age=604800
