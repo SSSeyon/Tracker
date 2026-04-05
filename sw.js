@@ -1,5 +1,5 @@
 const CACHE = 'tracker-v5';
-const OFFLINE_URL = '/index.html';
+const OFFLINE_URL = './index.html';
 
 // Handle notification messages from the page
 self.addEventListener('message', function(e){
@@ -7,8 +7,8 @@ self.addEventListener('message', function(e){
     self.registration.showNotification(e.data.title,{
       body: e.data.body,
       tag:  e.data.tag||'tracker',
-      icon: '/manifest.json',
-      badge:'/manifest.json',
+      icon: './manifest.json',
+      badge:'./manifest.json',
       vibrate:[100,50,100],
       requireInteraction: false,
     });
@@ -24,15 +24,17 @@ self.addEventListener('notificationclick', function(e){
         if(list[i].url.indexOf(self.location.origin)===0&&'focus' in list[i])
           return list[i].focus();
       }
-      if(clients.openWindow) return clients.openWindow('/');
+      if(clients.openWindow) return clients.openWindow('./');
     })
   );
 });
 
 // Files to pre-cache on install
 const PRE_CACHE = [
-  '/',
-  '/index.html',
+  './',
+  './index.html',
+  './icon-192.png',
+  './icon-512.png',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',

@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#ffffff" id="theme-color-meta">
 <meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000'/><text y='.9em' font-size='72' x='50%' text-anchor='middle'>✓</text></svg>">
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2592,7 +2592,7 @@ function fireNotif(title, body, tag){
         type:'SHOW_NOTIF', title:title, body:body, tag:tag||'tracker'
       });
     } else {
-      new Notification(title,{body:body,tag:tag||'tracker',icon:'/manifest.json'});
+      new Notification(title,{body:body,tag:tag||'tracker',icon:'./manifest.json'});
     }
   }catch(e){
     try{new Notification(title,{body:body,tag:tag||'tracker'});}catch(e2){}
@@ -2822,7 +2822,7 @@ if(!navigator.onLine){const b=document.getElementById('offline-banner');if(b)b.s
 
 // ── PWA: service worker ──────────────────────────────────────────────
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register('./sw.js')
     .then(reg => console.log('SW registered, scope:', reg.scope))
     .catch(e => console.log('SW registration failed:', e));
 }
