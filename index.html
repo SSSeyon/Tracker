@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tracker">
 <meta name="theme-color" content="#ffffff" id="theme-color-meta">
-<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)" id="theme-color-dark-meta">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000'/><text y='.9em' font-size='72' x='50%' text-anchor='middle'>✓</text></svg>">
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -152,7 +152,7 @@ body.t-sunset.dark-mode{
 .theme-swatch-preview span{flex:1;border-radius:4px}
 body.theme-work{--grad:var(--work-red)}
 body.theme-personal{--grad:var(--green)}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-app);color:var(--text-main);height:100vh;display:flex;overflow:hidden;font-size:14px;transition:background 0.3s,color 0.3s}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-app);color:var(--text-main);height:100vh;display:flex;overflow:hidden;font-size:14px;transition:background 0.3s,color 0.3s;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .app-container{display:flex;width:100%;height:100%;overflow:hidden}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .sidebar{width:252px;min-width:252px;background:var(--bg-sidebar);border-right:1px solid var(--border-color);display:flex;flex-direction:column;height:100%;padding:24px 16px;transition:left 0.3s cubic-bezier(0.16,1,0.3,1);z-index:5000;overflow-y:auto}
@@ -1043,6 +1043,7 @@ function applyTheme(id, save){
     localStorage.setItem(THEME_KEY, id);
     if(fbRef) fbRef.parent.child('meta/theme').set(id).catch(()=>{});
   }
+  updateThemeColor();
   renderThemeGrid();
 }
 
@@ -2323,12 +2324,30 @@ function closeOverlayBg(e){if(e.target.id==='overlay')closeModal()}
 
 
 
+function updateThemeColor(){
+  const isDark=document.body.classList.contains('dark-mode');
+  // Pick bg colour based on active theme + dark mode
+  const themeMap={
+    'default':    {light:'#ffffff', dark:'#121417'},
+    't-material': {light:'#fffbfe', dark:'#1d1b20'},
+    't-ios':      {light:'#f2f2f7', dark:'#1c1c1e'},
+    't-oneui':    {light:'#f4f4f4', dark:'#1c1c1c'},
+    't-amoled':   {light:'#000000', dark:'#000000'},
+    't-sunset':   {light:'#fff8f0', dark:'#241200'},
+  };
+  const activeTheme=Array.from(document.body.classList).find(function(cl){return themeMap[cl];})||'default';
+  const colour=themeMap[activeTheme][isDark?'dark':'light'];
+  const meta=document.getElementById('theme-color-meta');
+  if(meta) meta.setAttribute('content', colour);
+}
+
 function toggleDarkMode(){
   const isDark=document.body.classList.toggle('dark-mode');
   localStorage.setItem('donezo_dark',isDark);
   const moon=document.getElementById('icon-dark'),sun=document.getElementById('icon-light');
   if(moon)moon.style.display=isDark?'none':'block';
   if(sun)sun.style.display=isDark?'block':'none';
+  updateThemeColor();
 }
 function updateUISetting(key,val){uiSettings[key]=val;localStorage.setItem(UI_KEY,JSON.stringify(uiSettings));render()}
 function changeMonth(offset){currentCalDate.setMonth(currentCalDate.getMonth()+offset);renderCalendar()}
@@ -2738,6 +2757,7 @@ initFirebase();
 (function(){document.querySelectorAll('#btn-sound').forEach(function(btn){btn.innerHTML=_soundEnabled?'&#128276; On':'&#128263; Off';});})();
 renderCategorySettings();
 initTheme();
+updateThemeColor();
 updateXPBar(loadGamify());
 updateDailyRing();
 
