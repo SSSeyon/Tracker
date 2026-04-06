@@ -383,6 +383,21 @@ input:checked+.slider:before{transform:translateX(16px)}
 .archive-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:0.5px solid var(--border-color);background:var(--bg-card);margin-bottom:6px;opacity:0.75}
 .archive-item-name{flex:1;font-size:13.5px;font-weight:600;color:var(--text-main)}
 .archive-item-meta{font-size:10px;color:var(--text-muted);font-weight:700}
+.notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--text-main);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background 0.15s;flex-shrink:0}
+.notif-btn:hover{background:var(--bg-surface)}
+.notif-badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--work-red);display:none;border:1.5px solid var(--bg-sidebar)}
+.notif-panel{position:fixed;top:64px;right:16px;width:320px;max-height:420px;background:var(--bg-sidebar);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,0.14);z-index:9000;display:none;flex-direction:column;overflow:hidden}
+.notif-panel.open{display:flex}
+.notif-panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border-color);font-size:13px;font-weight:800;color:var(--text-main)}
+.notif-list{overflow-y:auto;flex:1}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border-color);cursor:pointer;transition:background 0.15s}
+.notif-item:hover{background:var(--bg-surface)}
+.notif-item:last-child{border:none}
+.notif-item-title{font-size:13px;font-weight:700;color:var(--text-main);margin-bottom:2px}
+.notif-item-body{font-size:11px;color:var(--text-muted)}
+.notif-item-time{font-size:10px;color:var(--text-muted);margin-top:3px}
+.notif-empty{padding:32px 16px;text-align:center;font-size:13px;color:var(--text-muted)}
+.notif-item.unread{border-left:3px solid var(--grad)}
 .restore-btn{font-size:11px;font-weight:700;color:var(--green);background:none;border:1px solid var(--green);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .restore-btn:hover{background:var(--green);color:#fff}
 
@@ -501,8 +516,12 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       </div>
       <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar-fill" style="width:0%"></div></div>
     </div>
-    <div class="sidebar-bottom">
+    <div class="sidebar-bottom" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div class="sync-badge"><span class="sync-dot" id="sync-dot-el"></span><span id="sync-lbl-el">Connecting…</span></div>
+      <button onclick="toggleDarkMode()" id="btn-darkmode" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;color:var(--text-muted);width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;transition:background 0.15s" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='none'">
+        <svg id="icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg id="icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
     </div>
   </aside>
 
@@ -522,11 +541,12 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
             stroke-dasharray="75.4" stroke-dashoffset="75.4"/>
           <text id="ring-text" x="16" y="20" text-anchor="middle" font-size="9" font-weight="800" fill="var(--text-muted)">0</text>
         </svg>
-        <div id="ring-tooltip" style="display:none;position:absolute;top:56px;right:60px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:10px 14px;font-size:11px;font-weight:700;color:var(--text-main);z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.15);white-space:nowrap;min-width:160px"></div>
-        <button onclick="toggleDarkMode()" id="btn-darkmode" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;color:var(--text-main);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background 0.15s" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='none'">
-          <svg id="icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg id="icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <button class="notif-btn" id="btn-notif-bell" onclick="toggleNotifPanel()" title="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notif-badge"></span>
         </button>
+        <div id="ring-tooltip" style="display:none;position:absolute;top:56px;right:60px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:10px 14px;font-size:11px;font-weight:700;color:var(--text-main);z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.15);white-space:nowrap;min-width:160px"></div>
+
         <button id="btn-install" onclick="installApp()" title="Install app" style="display:none;background:none;border:1px solid var(--border-color);border-radius:8px;width:36px;height:36px;align-items:center;justify-content:center;cursor:pointer;color:var(--text-main);flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button class="btn-primary" onclick="openModal()"><span>New Task</span></button>
       </div>
     </header>
@@ -759,6 +779,15 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       </div>
     </div>
   </main>
+</div>
+
+<!-- NOTIFICATION PANEL -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-header">
+    <span>Notifications</span>
+    <button onclick="clearAllNotifs()" style="font-size:11px;font-weight:700;color:var(--text-muted);background:none;border:none;cursor:pointer">Clear all</button>
+  </div>
+  <div class="notif-list" id="notif-list"></div>
 </div>
 
 <!-- FOCUS MODE -->
@@ -1786,17 +1815,20 @@ function render(){
     const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
 
     // Helper: parse date string as local midnight (avoids UTC-offset day-shift)
-    function parseLocalDate(str){if(!str)return null;const p=str.split('-');return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));}
+    function parseLocalDate(str){if(!str||!str.trim())return null;const p=str.split('-');if(p.length!==3)return null;const d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));return isNaN(d.getTime())?null:d;}
 
     // Helper: most urgent step date for a task
     function mostUrgentStepDate(t){
-      const dates=(t.steps||[]).filter(s=>s.status!=='completed'&&s.dueDate).map(s=>parseLocalDate(s.dueDate));
+      const dates=(t.steps||[]).filter(s=>s.status!=='completed'&&s.dueDate&&s.dueDate.trim()).map(s=>parseLocalDate(s.dueDate)).filter(Boolean);
       return dates.length?new Date(Math.min(...dates)):null;
     }
 
     function effectiveDueDate(t){
-      if(t.dueDate) return parseLocalDate(t.dueDate);
-      return mostUrgentStepDate(t);
+      const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
+      const sd=mostUrgentStepDate(t);
+      // Return whichever is more urgent (earlier)
+      if(td&&sd) return sd<td?sd:td;
+      return td||sd;
     }
 
     const incomplete=filtered.filter(t=>t.status!=='done');
@@ -2589,6 +2621,79 @@ function exportCSV(){
   showToast('CSV downloaded');
 }
 // ── Notifications ────────────────────────────────────────────────────
+
+// ── In-app notification log ───────────────────────────────────────────
+const NOTIF_LOG_KEY = 'donezo_notif_log';
+
+function loadNotifLog(){
+  try{return JSON.parse(localStorage.getItem(NOTIF_LOG_KEY)||'[]');}catch(e){return[];}
+}
+function saveNotifLog(log){
+  // Keep last 30
+  localStorage.setItem(NOTIF_LOG_KEY, JSON.stringify(log.slice(0,30)));
+}
+
+function logNotif(title, body){
+  const log = loadNotifLog();
+  log.unshift({title, body, at:Date.now(), read:false});
+  saveNotifLog(log);
+  updateNotifBadge();
+}
+
+function updateNotifBadge(){
+  const log = loadNotifLog();
+  const unread = log.filter(n=>!n.read).length;
+  const badge = document.getElementById('notif-badge');
+  if(badge) badge.style.display = unread>0?'block':'none';
+}
+
+function toggleNotifPanel(){
+  const panel = document.getElementById('notif-panel');
+  if(!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if(isOpen){
+    renderNotifPanel();
+    // Mark all as read
+    const log = loadNotifLog().map(n=>({...n, read:true}));
+    saveNotifLog(log);
+    updateNotifBadge();
+  }
+}
+
+function renderNotifPanel(){
+  const list = document.getElementById('notif-list');
+  if(!list) return;
+  const log = loadNotifLog();
+  if(!log.length){
+    list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+    return;
+  }
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  list.innerHTML = log.map(function(n){
+    const d = new Date(n.at);
+    const time = d.getDate()+' '+mo[d.getMonth()]+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    return '<div class="notif-item'+(n.read?'':' unread')+'">'
+      +'<div class="notif-item-title">'+n.title+'</div>'
+      +(n.body?'<div class="notif-item-body">'+n.body+'</div>':'')
+      +'<div class="notif-item-time">'+time+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function clearAllNotifs(){
+  saveNotifLog([]);
+  renderNotifPanel();
+  updateNotifBadge();
+}
+
+// Close panel when clicking outside
+document.addEventListener('click', function(e){
+  const panel = document.getElementById('notif-panel');
+  const btn = document.getElementById('btn-notif-bell');
+  if(panel&&panel.classList.contains('open')&&!panel.contains(e.target)&&e.target!==btn&&!btn.contains(e.target)){
+    panel.classList.remove('open');
+  }
+});
 function updateNotifUI(){
   const granted=('Notification' in window)&&Notification.permission==='granted';
   const btn=document.getElementById('btn-notif');
@@ -2628,6 +2733,7 @@ function saveNotifTime(val){
 }
 
 function fireNotif(title, body, tag){
+  logNotif(title, body);
   if(!('Notification' in window)||Notification.permission!=='granted') return;
   try{
     // Use service worker for background notifications if available
@@ -2816,6 +2922,7 @@ initFirebase();
 renderCategorySettings();
 initTheme();
 updateThemeColor();
+updateNotifBadge();
 updateXPBar(loadGamify());
 updateDailyRing();
 
