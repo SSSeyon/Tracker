@@ -1423,7 +1423,7 @@ function showToast(msg,undoFn){
 function renderModalSteps(){
   const c=document.getElementById('steps-list');if(!c)return;
   if(!window.currentModalSteps.length){c.innerHTML=`<div style="text-align:center;font-size:11px;color:var(--text-muted)">No steps added</div>`;return}
-  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div style="display:flex;align-items:center;gap:8px"><button onclick="cycleStepStatus('${s.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);font-size:10px;min-width:80px;cursor:pointer;background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'#eee'};color:${s.status==='not-started'?'#333':'#fff'};font-family:inherit">${s.status.replace('-',' ')}</button><input value="${s.text}" oninput="updateStepText('${s.id}',this.value)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:transparent;color:var(--text-main);font-family:inherit" placeholder="Step description…"><button onclick="removeStep('${s.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button></div><div style="display:flex;align-items:center;gap:8px;padding-left:88px"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Deadline:</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"></div></div></div>`).join('');
+  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div style="display:flex;align-items:center;gap:8px"><button onclick="cycleStepStatus('${s.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);font-size:10px;min-width:80px;cursor:pointer;background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'#eee'};color:${s.status==='not-started'?'#333':'#fff'};font-family:inherit">${s.status.replace('-',' ')}</button><input value="${s.text}" oninput="updateStepText('${s.id}',this.value)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:transparent;color:var(--text-main);font-family:inherit" placeholder="Step description…"><button onclick="removeStep('${s.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button></div><div style="display:flex;align-items:center;gap:8px;padding-left:88px;flex-wrap:wrap"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Deadline:</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Time:</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"></div></div></div>`).join('');
 }
 
 function getTrendData(){
@@ -1783,13 +1783,37 @@ function render(){
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;
     const now=new Date();now.setHours(0,0,0,0);
-    const urgent=filtered.filter(t=>t.status!=='done'&&t.dueDate&&new Date(t.dueDate)<=now);
+    const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
+
+    // Helper: parse date string as local midnight (avoids UTC-offset day-shift)
+    function parseLocalDate(str){if(!str)return null;const p=str.split('-');return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));}
+
+    // Helper: most urgent step date for a task
+    function mostUrgentStepDate(t){
+      const dates=(t.steps||[]).filter(s=>s.status!=='completed'&&s.dueDate).map(s=>parseLocalDate(s.dueDate));
+      return dates.length?new Date(Math.min(...dates)):null;
+    }
+
+    function effectiveDueDate(t){
+      if(t.dueDate) return parseLocalDate(t.dueDate);
+      return mostUrgentStepDate(t);
+    }
+
+    const incomplete=filtered.filter(t=>t.status!=='done');
+    const overdue=incomplete.filter(t=>{const d=effectiveDueDate(t);return d&&d<now;});
+    const overdueIds=new Set(overdue.map(t=>t.id));
+    const dueToday=incomplete.filter(t=>{if(overdueIds.has(t.id))return false;const d=effectiveDueDate(t);return d&&d>=now&&d<tomorrow;});
+    const dueTodayIds=new Set(dueToday.map(t=>t.id));
+    const urgent=[...overdue,...dueToday];
     const urgentIds=new Set(urgent.map(t=>t.id));
-    const active=filtered.filter(t=>t.status!=='done'&&!urgentIds.has(t.id));
+    const active=incomplete.filter(t=>!urgentIds.has(t.id));
     const done=filtered.filter(t=>t.status==='done');
     let html='';
-    if(urgent.length){
-      html+='<div class="section-divider" style="color:var(--red)">&#9888; Needs attention ('+urgent.length+')</div>'+urgent.map(renderFn).join('');
+    if(overdue.length){
+      html+='<div class="section-divider" style="color:var(--red)">&#9888; Past due ('+overdue.length+')</div>'+overdue.map(renderFn).join('');
+    }
+    if(dueToday.length){
+      html+='<div class="section-divider" style="color:var(--p-med)">&#128197; Due today ('+dueToday.length+')</div>'+dueToday.map(renderFn).join('');
     }
     if(active.length){
       if(urgent.length) html+='<div class="section-divider">Active ('+active.length+')</div>';
@@ -1898,7 +1922,8 @@ function showTaskDetail(id){
     stepsList.innerHTML=steps.map(s=>{
       const dotCls=s.status==='completed'?'step-dot-done':s.status==='in-progress'?'step-dot-prog':'step-dot-none';
       const strike=s.status==='completed'?' style="text-decoration:line-through;opacity:0.5"':'';
-      return'<div class="detail-step-item" onclick="toggleDetailStep(\"'+t.id+'\",\"'+s.id+'\")"><span class="detail-step-dot '+dotCls+'"></span><span'+strike+'>'+s.text+'</span>'+(s.dueDate?'<span style="margin-left:auto;font-size:10px;color:var(--text-muted)">'+s.dueDate+'</span>':'')+'</div>';
+      var stepMeta=(s.dueDate?'<span style="font-size:10px;color:var(--text-muted)">'+s.dueDate+'</span>':'')+(s.notifTime?'<span style="font-size:10px;color:var(--purple);margin-left:4px">&#128276; '+s.notifTime+'</span>':'');
+return'<div class="detail-step-item" onclick="toggleDetailStep(\"'+t.id+'\",\"'+s.id+'\")"><span class="detail-step-dot '+dotCls+'"></span><span'+strike+'>'+s.text+'</span><span style="margin-left:auto;display:flex;gap:4px;align-items:center">'+stepMeta+'</span></div>';
     }).join('');
   } else { stepsWrap.style.display='none'; }
 
@@ -2646,6 +2671,37 @@ function checkDueNotifications(){
   }
 }
 
+// Per-task start-time notifications + step notifications
+function checkStepNotifs(){
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  const now=new Date();
+  const todayStr=now.toISOString().split('T')[0];
+  const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const nineAM=hhmm==='09:00';
+  tasks.filter(function(t){return t.status!=='done';}).forEach(function(t){
+    (t.steps||[]).filter(function(s){return s.status!=='completed';}).forEach(function(s){
+      // Specific time notification
+      if(s.notifTime&&s.notifTime===hhmm){
+        var tag='step-time-'+t.id+'-'+s.id;
+        fireNotif(
+          'Step reminder: '+s.text,
+          'Part of: '+t.name,
+          tag
+        );
+      }
+      // Due date morning notification at 9am
+      if(nineAM&&s.dueDate&&s.dueDate===todayStr){
+        var tag2='step-due-'+t.id+'-'+s.id;
+        fireNotif(
+          'Step due today: '+s.text,
+          'Part of: '+t.name,
+          tag2
+        );
+      }
+    });
+  });
+}
+
 // Per-task start-time notifications
 function checkTimeBlockNotifs(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
@@ -2666,6 +2722,7 @@ function scheduleNotifLoop(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
   _notifTimer=setInterval(function(){
     checkTimeBlockNotifs();
+    checkStepNotifs();
     // daily reminder
     const saved=localStorage.getItem('donezo_notif_time')||'09:00';
     const now=new Date();
@@ -2732,6 +2789,7 @@ function removeStep(id){window.currentModalSteps=window.currentModalSteps.filter
 function cycleStepStatus(id){const s=window.currentModalSteps.find(x=>x.id===id);if(!s)return;s.status={'not-started':'in-progress','in-progress':'completed','completed':'not-started'}[s.status];renderModalSteps()}
 function updateStepText(id,v){const s=window.currentModalSteps.find(x=>x.id===id);if(s)s.text=v}
 function updateStepDate(id,v){const s=window.currentModalSteps.find(x=>x.id===id);if(s)s.dueDate=v}
+function updateStepTime(id,v){const s=window.currentModalSteps.find(x=>x.id===id);if(s)s.notifTime=v}
 
 if(localStorage.getItem('donezo_dark')==='true'){
   document.body.classList.add('dark-mode');
