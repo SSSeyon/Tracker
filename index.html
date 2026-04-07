@@ -790,7 +790,11 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
     </div>
     <div class="content" id="view-history" style="display:none">
       <h1 class="page-title">History</h1>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Tasks and steps completed each day.</p>
+      <div style="display:flex;gap:4px;background:var(--bg-sidebar);border:1px solid var(--border-color);border-radius:12px;padding:4px;width:fit-content;margin-bottom:16px">
+        <button class="mode-tab active" id="hist-tab-all" onclick="setHistoryTab('all')">All</button>
+        <button class="mode-tab" id="hist-tab-work" onclick="setHistoryTab('work')">Work</button>
+        <button class="mode-tab" id="hist-tab-personal" onclick="setHistoryTab('personal')">Personal</button>
+      </div>
       <div id="history-list"></div>
     </div>
   </main>
@@ -2885,6 +2889,16 @@ function scheduleNotifLoop(){
 }
 
 
+let _historyTab='all';
+function setHistoryTab(tab){
+  _historyTab=tab;
+  ['all','work','personal'].forEach(function(t){
+    const btn=document.getElementById('hist-tab-'+t);
+    if(btn)btn.classList.toggle('active',t===tab);
+  });
+  renderHistory();
+}
+
 function renderHistory(){
   const list=document.getElementById('history-list');
   if(!list)return;
@@ -2895,7 +2909,7 @@ function renderHistory(){
   const buckets={};
 
   // Completed tasks — use updatedAt
-  tasks.filter(t=>t.status==='done'&&t.updatedAt).forEach(t=>{
+  tasks.filter(t=>t.status==='done'&&t.updatedAt&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
     const d=new Date(t.updatedAt);
     const key=d.toISOString().split('T')[0];
     if(!buckets[key])buckets[key]=[];
@@ -2903,7 +2917,7 @@ function renderHistory(){
   });
 
   // Also check archive for tasks completed before archiving
-  loadArch().filter(t=>t.updatedAt).forEach(t=>{
+  loadArch().filter(t=>t.updatedAt&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
     const d=new Date(t.updatedAt);
     const key=d.toISOString().split('T')[0];
     if(!buckets[key])buckets[key]=[];
@@ -2911,8 +2925,8 @@ function renderHistory(){
     if(t.status==='done') buckets[key].push({type:'task',task:t,completedAt:t.updatedAt,archived:true});
   });
 
-  // Completed steps — use history log if available, else check completed status
-  tasks.forEach(t=>{
+  // Completed steps — use completedAt timestamp
+  tasks.filter(t=>_historyTab==='all'||t.category===_historyTab).forEach(t=>{
     (t.steps||[]).filter(s=>s.status==='completed'&&s.completedAt).forEach(s=>{
       const d=new Date(s.completedAt);
       const key=d.toISOString().split('T')[0];
