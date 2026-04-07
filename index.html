@@ -383,6 +383,15 @@ input:checked+.slider:before{transform:translateX(16px)}
 .archive-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:0.5px solid var(--border-color);background:var(--bg-card);margin-bottom:6px;opacity:0.75}
 .archive-item-name{flex:1;font-size:13.5px;font-weight:600;color:var(--text-main)}
 .archive-item-meta{font-size:10px;color:var(--text-muted);font-weight:700}
+.history-day{margin-bottom:24px}
+.history-day-header{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.06em;padding:8px 0 6px;border-bottom:1px solid var(--border-color);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.history-day-count{font-size:10px;font-weight:700;color:var(--grad);background:var(--purple-light);padding:2px 8px;border-radius:10px}
+.history-task-item{background:var(--bg-card);border:0.5px solid var(--border-color);border-radius:var(--radius);padding:12px 14px;margin-bottom:6px;cursor:pointer;transition:background 0.15s}
+.history-task-item:hover{background:var(--bg-surface)}
+.history-task-name{font-size:13px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:6px}
+.history-task-meta{font-size:11px;color:var(--text-muted);margin-top:3px}
+.history-step-item{display:flex;align-items:center;gap:8px;padding:5px 0 5px 12px;font-size:12px;color:var(--text-dim);font-weight:600;border-left:2px solid var(--border-color);margin:4px 0 4px 6px}
+.history-step-item::before{content:'↳';color:var(--text-muted);font-size:10px}
 .notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--text-main);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background 0.15s;flex-shrink:0}
 .notif-btn:hover{background:var(--bg-surface)}
 .notif-badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--work-red);display:none;border:1.5px solid var(--bg-sidebar)}
@@ -507,6 +516,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
     <div class="sb-section-label">Account</div>
     <div class="nav-item" id="nav-gamify" onclick="setView('gamify');closeSidebarMobile()">&#127942; Progress</div>
     <div class="nav-item" id="nav-templates" onclick="setView('templates');closeSidebarMobile()">&#128203; Templates</div>
+    <div class="nav-item" id="nav-history" onclick="setView('history');closeSidebarMobile()">&#9989; History</div>
     <div class="nav-item" id="nav-archive" onclick="setView('archive');closeSidebarMobile()">Archive</div>
     <div class="nav-item" id="nav-settings" onclick="setView('settings');closeSidebarMobile()">Settings</div>
     <div class="xp-bar-wrap" id="xp-bar-wrap">
@@ -777,6 +787,11 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
         </div>
 
       </div>
+    </div>
+    <div class="content" id="view-history" style="display:none">
+      <h1 class="page-title">History</h1>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Tasks and steps completed each day.</p>
+      <div id="history-list"></div>
     </div>
   </main>
 </div>
@@ -1951,12 +1966,24 @@ function showTaskDetail(id){
   const stepsList=document.getElementById('dp-steps-list');
   if(steps.length){
     stepsWrap.style.display='block';
-    stepsList.innerHTML=steps.map(s=>{
+    stepsList.innerHTML='';
+    steps.forEach(function(s){
       const dotCls=s.status==='completed'?'step-dot-done':s.status==='in-progress'?'step-dot-prog':'step-dot-none';
-      const strike=s.status==='completed'?' style="text-decoration:line-through;opacity:0.5"':'';
-      var stepMeta=(s.dueDate?'<span style="font-size:10px;color:var(--text-muted)">'+s.dueDate+'</span>':'')+(s.notifTime?'<span style="font-size:10px;color:var(--purple);margin-left:4px">&#128276; '+s.notifTime+'</span>':'');
-return'<div class="detail-step-item" onclick="toggleDetailStep(\"'+t.id+'\",\"'+s.id+'\")"><span class="detail-step-dot '+dotCls+'"></span><span'+strike+'>'+s.text+'</span><span style="margin-left:auto;display:flex;gap:4px;align-items:center">'+stepMeta+'</span></div>';
-    }).join('');
+      const el=document.createElement('div');
+      el.className='detail-step-item';
+      const dot=document.createElement('span');
+      dot.className='detail-step-dot '+dotCls;
+      const txt=document.createElement('span');
+      if(s.status==='completed'){txt.style.textDecoration='line-through';txt.style.opacity='0.5';}
+      txt.textContent=s.text;
+      const meta=document.createElement('span');
+      meta.style.cssText='margin-left:auto;display:flex;gap:4px;align-items:center';
+      if(s.dueDate){const d=document.createElement('span');d.style.cssText='font-size:10px;color:var(--text-muted)';d.textContent=s.dueDate;meta.appendChild(d);}
+      if(s.notifTime){const nt=document.createElement('span');nt.style.cssText='font-size:10px;color:var(--purple);margin-left:4px';nt.innerHTML='&#128276; '+s.notifTime;meta.appendChild(nt);}
+      el.appendChild(dot);el.appendChild(txt);el.appendChild(meta);
+      el.addEventListener('click',function(){toggleDetailStep(t.id,s.id);});
+      stepsList.appendChild(el);
+    });
   } else { stepsWrap.style.display='none'; }
 
   const pbWrap=document.getElementById('dp-prog-bar-wrap');
@@ -2249,7 +2276,8 @@ function toggleDetailStep(taskId, stepId){
   if(!s)return;
   var cycle={'not-started':'in-progress','in-progress':'completed','completed':'not-started'};
   s.status=cycle[s.status]||'not-started';
-  if(s.status==='completed'){playPop();haptic('light');}
+  if(s.status==='completed'){s.completedAt=Date.now();playPop();haptic('light');}
+  else if(s.status!=='completed'){delete s.completedAt;}
   t.updatedAt=Date.now();
   localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
   fbSave(t);
@@ -2449,6 +2477,7 @@ function setView(v){
   document.getElementById('view-archive').style.display=v==='archive'?'block':'none';
   document.getElementById('view-gamify').style.display=v==='gamify'?'block':'none';
   document.getElementById('view-templates').style.display=v==='templates'?'block':'none';
+  document.getElementById('view-history').style.display=v==='history'?'block':'none';
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const navId=v==='dashboard'?currentMode:(v==='gamify'?'gamify':v);
   const nav=document.getElementById('nav-'+navId);if(nav)nav.classList.add('active');
@@ -2457,6 +2486,7 @@ function setView(v){
   if(v==='settings')renderThemeGrid();
   if(v==='gamify')renderGamify();
   if(v==='templates')renderTemplates();
+  if(v==='history')renderHistory();
 }
 
 
@@ -2633,9 +2663,9 @@ function saveNotifLog(log){
   localStorage.setItem(NOTIF_LOG_KEY, JSON.stringify(log.slice(0,30)));
 }
 
-function logNotif(title, body){
+function logNotif(title, body, taskId){
   const log = loadNotifLog();
-  log.unshift({title, body, at:Date.now(), read:false});
+  log.unshift({title, body, taskId:taskId||null, at:Date.now(), read:false});
   saveNotifLog(log);
   updateNotifBadge();
 }
@@ -2669,15 +2699,24 @@ function renderNotifPanel(){
     return;
   }
   const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  list.innerHTML = log.map(function(n){
+  list.innerHTML = log.map(function(n,i){
     const d = new Date(n.at);
     const time = d.getDate()+' '+mo[d.getMonth()]+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
-    return '<div class="notif-item'+(n.read?'':' unread')+'">'
+    return '<div class="notif-item'+(n.read?'':' unread')+'" data-notif-idx="'+i+'"'+(n.taskId?' data-task-id="'+n.taskId+'"':'')+'>'
       +'<div class="notif-item-title">'+n.title+'</div>'
       +(n.body?'<div class="notif-item-body">'+n.body+'</div>':'')
-      +'<div class="notif-item-time">'+time+'</div>'
+      +'<div class="notif-item-time">'+time+(n.taskId?'<span style="color:var(--purple);margin-left:6px;font-weight:700">&#8594; Open</span>':'')+'</div>'
       +'</div>';
   }).join('');
+  list.querySelectorAll('[data-task-id]').forEach(function(el){
+    el.addEventListener('click', function(){
+      const tid = el.dataset.taskId;
+      const t = tasks.find(function(x){return x.id===tid;});
+      if(!t) return;
+      document.getElementById('notif-panel').classList.remove('open');
+      showTaskDetail(tid);
+    });
+  });
 }
 
 function clearAllNotifs(){
@@ -2732,8 +2771,8 @@ function saveNotifTime(val){
   scheduleNotifLoop();
 }
 
-function fireNotif(title, body, tag){
-  logNotif(title, body);
+function fireNotif(title, body, tag, taskId){
+  logNotif(title, body, taskId);
   if(!('Notification' in window)||Notification.permission!=='granted') return;
   try{
     // Use service worker for background notifications if available
@@ -2761,7 +2800,8 @@ function checkDueNotifications(){
     fireNotif(
       overdue.length+' overdue task'+(overdue.length>1?'s':''),
       names,
-      'tracker-overdue'
+      'tracker-overdue',
+      overdue.length===1?overdue[0].id:null
     );
   }
 
@@ -2771,7 +2811,8 @@ function checkDueNotifications(){
       fireNotif(
         dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today',
         names,
-        'tracker-today'
+        'tracker-today',
+        dueToday.length===1?dueToday[0].id:null
       );
     }, overdue.length>0?1500:0);
   }
@@ -2792,7 +2833,8 @@ function checkStepNotifs(){
         fireNotif(
           'Step reminder: '+s.text,
           'Part of: '+t.name,
-          tag
+          tag,
+          t.id
         );
       }
       // Due date morning notification at 9am
@@ -2801,7 +2843,8 @@ function checkStepNotifs(){
         fireNotif(
           'Step due today: '+s.text,
           'Part of: '+t.name,
-          tag2
+          tag2,
+          t.id
         );
       }
     });
@@ -2817,7 +2860,7 @@ function checkTimeBlockNotifs(){
   tasks.filter(function(t){
     return t.status!=='done'&&t.dueDate===todayStr&&t.startTime&&t.startTime===hhmm;
   }).forEach(function(t){
-    fireNotif('Time to start: '+t.name, t.duration?t.duration+' min block':'Scheduled now','tracker-block-'+t.id);
+    fireNotif('Time to start: '+t.name, t.duration?t.duration+' min block':'Scheduled now','tracker-block-'+t.id, t.id);
   });
 }
 
@@ -2841,6 +2884,98 @@ function scheduleNotifLoop(){
   },60000); // every minute
 }
 
+
+function renderHistory(){
+  const list=document.getElementById('history-list');
+  if(!list)return;
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  // Build day buckets
+  const buckets={};
+
+  // Completed tasks — use updatedAt
+  tasks.filter(t=>t.status==='done'&&t.updatedAt).forEach(t=>{
+    const d=new Date(t.updatedAt);
+    const key=d.toISOString().split('T')[0];
+    if(!buckets[key])buckets[key]=[];
+    buckets[key].push({type:'task',task:t,completedAt:t.updatedAt});
+  });
+
+  // Also check archive for tasks completed before archiving
+  loadArch().filter(t=>t.updatedAt).forEach(t=>{
+    const d=new Date(t.updatedAt);
+    const key=d.toISOString().split('T')[0];
+    if(!buckets[key])buckets[key]=[];
+    // Only add if status was done
+    if(t.status==='done') buckets[key].push({type:'task',task:t,completedAt:t.updatedAt,archived:true});
+  });
+
+  // Completed steps — use history log if available, else check completed status
+  tasks.forEach(t=>{
+    (t.steps||[]).filter(s=>s.status==='completed'&&s.completedAt).forEach(s=>{
+      const d=new Date(s.completedAt);
+      const key=d.toISOString().split('T')[0];
+      if(!buckets[key])buckets[key]=[];
+      buckets[key].push({type:'step',step:s,task:t,completedAt:s.completedAt});
+    });
+  });
+
+  const sortedDays=Object.keys(buckets).sort((a,b)=>b.localeCompare(a));
+
+  if(!sortedDays.length){
+    list.innerHTML='<div class="empty-state"><div class="empty-state-title" style="font-size:15px;font-weight:700;color:var(--text-dim);margin-bottom:6px">No completed tasks yet</div><div class="empty-state-sub" style="font-size:13px">Completed tasks and steps will appear here</div></div>';
+    return;
+  }
+
+  const today=new Date();today.setHours(0,0,0,0);
+  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);
+
+  list.innerHTML=sortedDays.map(function(key){
+    const items=buckets[key];
+    const d=new Date(key+'T12:00:00');
+    let label='';
+    if(d.toDateString()===today.toDateString()) label='Today';
+    else if(d.toDateString()===yesterday.toDateString()) label='Yesterday';
+    else label=days[d.getDay()]+', '+d.getDate()+' '+mo[d.getMonth()]+' '+d.getFullYear();
+
+    const taskItems=items.filter(i=>i.type==='task');
+    const stepItems=items.filter(i=>i.type==='step');
+    const total=taskItems.length+stepItems.length;
+
+    const inner=items.sort((a,b)=>b.completedAt-a.completedAt).map(function(item){
+      if(item.type==='task'){
+        const t=item.task;
+        const time=new Date(item.completedAt);
+        const hhmm=time.getHours().toString().padStart(2,'0')+':'+time.getMinutes().toString().padStart(2,'0');
+        return '<div class="history-task-item" data-hist-task="'+t.id+'">'
+          +'<div class="history-task-name">&#9989; '+t.name+(item.archived?'<span style="font-size:9px;color:var(--text-muted);font-weight:700;background:var(--bg-surface);padding:1px 5px;border-radius:4px">archived</span>':'')+'</div>'
+          +'<div class="history-task-meta">'+t.category+' &bull; '+t.priority+' priority &bull; '+hhmm+'</div>'
+          +'</div>';
+      } else {
+        const s=item.step;const t=item.task;
+        const time=new Date(item.completedAt);
+        const hhmm=time.getHours().toString().padStart(2,'0')+':'+time.getMinutes().toString().padStart(2,'0');
+        return '<div class="history-step-item" data-hist-task="'+t.id+'" style="cursor:pointer">'+s.text+' <span style="color:var(--text-muted);font-size:10px">('+t.name+') &bull; '+hhmm+'</span></div>';
+      }
+    }).join('');
+
+    return '<div class="history-day">'
+      +'<div class="history-day-header"><span>'+label+'</span><span class="history-day-count">'+total+' completed</span></div>'
+      +inner
+      +'</div>';
+  }).join('');
+
+  // Wire clicks to open task detail
+  list.querySelectorAll('[data-hist-task]').forEach(function(el){
+    el.addEventListener('click',function(){
+      const id=el.dataset.histTask;
+      const t=tasks.find(function(x){return x.id===id;});
+      if(t) showTaskDetail(id);
+      else showToast('Task no longer in active list');
+    });
+  });
+}
 function renderArchive(){
   const list=document.getElementById('archive-list');if(!list)return;
   let arch=loadArch().filter(x=>(Date.now()-x.archivedAt)<30*86400000);
@@ -2892,7 +3027,7 @@ function permanentlyDeleteArchived(id){
 
 function addStep(){window.currentModalSteps.push({id:crypto.randomUUID(),text:'',status:'not-started',dueDate:''});renderModalSteps()}
 function removeStep(id){window.currentModalSteps=window.currentModalSteps.filter(x=>x.id!==id);renderModalSteps()}
-function cycleStepStatus(id){const s=window.currentModalSteps.find(x=>x.id===id);if(!s)return;s.status={'not-started':'in-progress','in-progress':'completed','completed':'not-started'}[s.status];renderModalSteps()}
+function cycleStepStatus(id){const s=window.currentModalSteps.find(x=>x.id===id);if(!s)return;s.status={'not-started':'in-progress','in-progress':'completed','completed':'not-started'}[s.status];if(s.status==='completed')s.completedAt=Date.now();else delete s.completedAt;renderModalSteps()}
 function updateStepText(id,v){const s=window.currentModalSteps.find(x=>x.id===id);if(s)s.text=v}
 function updateStepDate(id,v){const s=window.currentModalSteps.find(x=>x.id===id);if(s)s.dueDate=v}
 function updateStepTime(id,v){const s=window.currentModalSteps.find(x=>x.id===id);if(s)s.notifTime=v}
