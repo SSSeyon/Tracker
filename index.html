@@ -1218,11 +1218,30 @@ function onTaskCompleted(task){
 }
 
 
+function parseLocalDate(str){if(!str||!str.trim())return null;const p=str.split('-');if(p.length!==3)return null;const d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));return isNaN(d.getTime())?null:d;}
+
 function updateDailyRing(){
-  const today=new Date().toISOString().split('T')[0];
-  const dueToday=tasks.filter(t=>t.dueDate&&(t.dueDate===today||(t.dueDate<today&&t.status!=='done')));
-  const total=dueToday.length;
-  const done=dueToday.filter(t=>t.status==='done').length;
+  const now=new Date();now.setHours(0,0,0,0);
+  const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
+
+  function mostUrgentStepDate(t){
+    const dates=(t.steps||[]).filter(function(s){return s.status!=='completed'&&s.dueDate&&s.dueDate.trim();}).map(function(s){return parseLocalDate(s.dueDate);}).filter(Boolean);
+    return dates.length?new Date(Math.min.apply(null,dates)):null;
+  }
+  function ringDueDate(t){
+    const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
+    const sd=mostUrgentStepDate(t);
+    if(td&&sd)return sd<td?sd:td;
+    return td||sd;
+  }
+
+  // All tasks due today or overdue (regardless of status)
+  const relevant=tasks.filter(function(t){
+    const d=ringDueDate(t);
+    return d&&d<tomorrow;
+  });
+  const total=relevant.length;
+  const done=relevant.filter(function(t){return t.status==='done';}).length;
   const pct=total>0?Math.min(1,done/total):0;
   const circumference=75.4;
   const offset=circumference-(pct*circumference);
@@ -1834,7 +1853,7 @@ function render(){
     const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
 
     // Helper: parse date string as local midnight (avoids UTC-offset day-shift)
-    function parseLocalDate(str){if(!str||!str.trim())return null;const p=str.split('-');if(p.length!==3)return null;const d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));return isNaN(d.getTime())?null:d;}
+    // parseLocalDate is defined globally below
 
     // Helper: most urgent step date for a task
     function mostUrgentStepDate(t){
