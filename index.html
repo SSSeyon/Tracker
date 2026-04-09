@@ -1003,6 +1003,24 @@ function initFirebase(){
   }catch(e){console.warn('Firebase init failed:',e)}
   });
 }
+function forceSync(){
+  if(!fbRef){render();return;}
+  const dot=document.getElementById('sync-dot-el');
+  const lbl=document.getElementById('sync-lbl-el');
+  if(lbl)lbl.innerText='Syncing…';
+  fbRef.once('value').then(function(snap){
+    const data=snap.val();
+    tasks=data?Object.values(data):[];
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
+    render();
+    if(lbl)lbl.innerText='Synced';
+  }).catch(function(e){
+    console.warn('Force sync failed:',e);
+    render();
+    if(lbl)lbl.innerText='Sync failed';
+  });
+}
+
 function fbSave(t){
   if(fbRef)fbRef.child(t.id).set(t).catch(e=>console.warn('FB write error:',e));
 }
@@ -3094,6 +3112,11 @@ updateNotifBadge();
 updateXPBar(loadGamify());
 updateDailyRing();
 
+// Re-sync when tab becomes visible again (fixes desktop stale data)
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible') forceSync();
+});
+
 // ── Pull to refresh ───────────────────────────────────────────────────
 (function(){
   const content=document.querySelector('.content');
@@ -3122,13 +3145,13 @@ updateDailyRing();
     const dy=e.changedTouches[0].clientY-startY;
     indicator.style.transform='translateX(-50%) translateY(-48px)';
     if(dy>60){
-      indicator.innerText='Refreshing…';
+      indicator.innerText='Syncing…';
       indicator.style.transform='translateX(-50%) translateY(4px)';
+      forceSync();
       setTimeout(()=>{
-        render();
         indicator.style.transform='translateX(-50%) translateY(-48px)';
         indicator.innerText='Pull to refresh';
-      },800);
+      },1500);
     }
     pulling=false;startY=0;
   },{passive:true});
