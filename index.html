@@ -399,7 +399,10 @@ input:checked+.slider:before{transform:translateX(16px)}
 .notif-panel.open{display:flex}
 .notif-panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border-color);font-size:13px;font-weight:800;color:var(--text-main)}
 .notif-list{overflow-y:auto;flex:1}
-.notif-item{padding:12px 16px;border-bottom:1px solid var(--border-color);cursor:pointer;transition:background 0.15s}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border-color);cursor:pointer;transition:transform 0.25s ease,opacity 0.25s ease,background 0.15s;position:relative;overflow:hidden;touch-action:pan-y}
+.notif-item.swiping{transition:none}
+.notif-dismiss-hint{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:800;color:var(--red);opacity:0;transition:opacity 0.2s;pointer-events:none}
+
 .notif-item:hover{background:var(--bg-surface)}
 .notif-item:last-child{border:none}
 .notif-item-title{font-size:13px;font-weight:700;color:var(--text-main);margin-bottom:2px}
@@ -995,9 +998,8 @@ function initFirebase(){
       if(_fbFirstLoad){
         _fbFirstLoad=false;
         if(Notification.permission==='granted'){
-          setTimeout(checkDueNotifications,500);
+          setTimeout(checkTimeBlockNotifs,500);
           setTimeout(checkStepNotifs,1000);
-          setTimeout(checkTimeBlockNotifs,1500);
         }
       }
     });
@@ -2749,32 +2751,78 @@ function toggleNotifPanel(){
 }
 
 function renderNotifPanel(){
-  const list = document.getElementById('notif-list');
-  if(!list) return;
-  const log = loadNotifLog();
+  const list=document.getElementById('notif-list');
+  if(!list)return;
+  const log=loadNotifLog();
   if(!log.length){
-    list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+    list.innerHTML='<div class="notif-empty">No notifications yet</div>';
     return;
   }
   const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  list.innerHTML = log.map(function(n,i){
-    const d = new Date(n.at);
-    const time = d.getDate()+' '+mo[d.getMonth()]+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
-    return '<div class="notif-item'+(n.read?'':' unread')+'" data-notif-idx="'+i+'"'+(n.taskId?' data-task-id="'+n.taskId+'"':'')+'>'
-      +'<div class="notif-item-title">'+n.title+'</div>'
-      +(n.body?'<div class="notif-item-body">'+n.body+'</div>':'')
-      +'<div class="notif-item-time">'+time+(n.taskId?'<span style="color:var(--purple);margin-left:6px;font-weight:700">&#8594; Open</span>':'')+'</div>'
-      +'</div>';
-  }).join('');
-  list.querySelectorAll('[data-task-id]').forEach(function(el){
-    el.addEventListener('click', function(){
-      const tid = el.dataset.taskId;
-      const t = tasks.find(function(x){return x.id===tid;});
-      if(!t) return;
-      document.getElementById('notif-panel').classList.remove('open');
-      showTaskDetail(tid);
-    });
+  list.innerHTML='';
+  log.forEach(function(n,i){
+    const d=new Date(n.at);
+    const time=d.getDate()+' '+mo[d.getMonth()]+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    const el=document.createElement('div');
+    el.className='notif-item'+(n.read?'':' unread');
+
+    // Content
+    const title=document.createElement('div');title.className='notif-item-title';title.textContent=n.title;
+    const body=n.body?document.createElement('div'):null;
+    if(body){body.className='notif-item-body';body.textContent=n.body;}
+    const meta=document.createElement('div');meta.className='notif-item-time';
+    meta.textContent=time;
+    if(n.taskId){const arrow=document.createElement('span');arrow.style.cssText='color:var(--purple);margin-left:6px;font-weight:700';arrow.innerHTML='&#8594; Open';meta.appendChild(arrow);}
+    const hint=document.createElement('span');hint.className='notif-dismiss-hint';hint.textContent='Swipe to dismiss';
+    el.appendChild(title);if(body)el.appendChild(body);el.appendChild(meta);el.appendChild(hint);
+
+    // Tap to open task
+    if(n.taskId){
+      el.addEventListener('click',function(){
+        const t=tasks.find(function(x){return x.id===n.taskId;});
+        if(!t)return;
+        document.getElementById('notif-panel').classList.remove('open');
+        showTaskDetail(n.taskId);
+      });
+    }
+
+    // Swipe to dismiss
+    let startX=0,startY=0,dx=0,swiping=false;
+    el.addEventListener('touchstart',function(e){
+      startX=e.touches[0].clientX;startY=e.touches[0].clientY;dx=0;swiping=false;
+    },{passive:true});
+    el.addEventListener('touchmove',function(e){
+      const curX=e.touches[0].clientX,curY=e.touches[0].clientY;
+      dx=curX-startX;
+      const dy=Math.abs(curY-startY);
+      if(!swiping&&Math.abs(dx)>dy&&Math.abs(dx)>8) swiping=true;
+      if(swiping){
+        el.classList.add('swiping');
+        el.style.transform='translateX('+dx+'px)';
+        el.style.opacity=Math.max(0,1-Math.abs(dx)/120);
+        hint.style.opacity=Math.min(1,Math.abs(dx)/60);
+      }
+    },{passive:true});
+    el.addEventListener('touchend',function(){
+      el.classList.remove('swiping');
+      if(Math.abs(dx)>80){
+        el.style.transform='translateX('+(dx>0?'120%':'-120%')+')';
+        el.style.opacity='0';
+        setTimeout(function(){dismissNotif(i);},250);
+      } else {
+        el.style.transform='';el.style.opacity='';hint.style.opacity='0';
+      }
+    },{passive:true});
+
+    list.appendChild(el);
   });
+}
+
+function dismissNotif(idx){
+  const log=loadNotifLog().filter(function(_,i){return i!==idx;});
+  saveNotifLog(log);
+  renderNotifPanel();
+  updateNotifBadge();
 }
 
 function clearAllNotifs(){
@@ -2851,10 +2899,14 @@ function fireNotif(title, body, tag, taskId){
 let _lastDueNotifDate='';
 function checkDueNotifications(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
-  // Only fire once per day per session
-  const todayStr=new Date().toISOString().split('T')[0];
-  if(_lastDueNotifDate===todayStr) return;
-  _lastDueNotifDate=todayStr;
+  // Only fire at 10:00, 13:00, 17:00
+  const now=new Date();
+  const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const slots=['10:00','13:00','17:00'];
+  const todaySlotKey='donezo_notif_fired_'+now.toISOString().split('T')[0]+'_'+hhmm;
+  if(!slots.includes(hhmm)) return;
+  if(sessionStorage.getItem(todaySlotKey)) return;
+  sessionStorage.setItem(todaySlotKey,'1');
 
   const today=new Date();today.setHours(0,0,0,0);
   const active=tasks.filter(function(t){return t.status!=='done';});
@@ -2938,15 +2990,7 @@ function scheduleNotifLoop(){
   _notifTimer=setInterval(function(){
     checkTimeBlockNotifs();
     checkStepNotifs();
-    // daily reminder
-    const saved=localStorage.getItem('donezo_notif_time')||'09:00';
-    const now=new Date();
-    const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
-    const todayKey='donezo_notif_fired_'+now.toISOString().split('T')[0];
-    if(hhmm===saved&&!sessionStorage.getItem(todayKey)){
-      sessionStorage.setItem(todayKey,'1');
-      checkDueNotifications();
-    }
+    checkDueNotifications(); // only fires at 10:00, 13:00, 17:00
   },60000); // every minute
 }
 
