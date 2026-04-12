@@ -1,4 +1,4 @@
-const CACHE = 'tracker-v5';
+const CACHE = 'tracker-v6';
 const OFFLINE_URL = './index.html';
 
 // Handle notification messages from the page
@@ -7,8 +7,6 @@ self.addEventListener('message', function(e){
     self.registration.showNotification(e.data.title,{
       body: e.data.body,
       tag:  e.data.tag||'tracker',
-      icon: './manifest.json',
-      badge:'./manifest.json',
       vibrate:[100,50,100],
       requireInteraction: false,
     });
@@ -33,8 +31,6 @@ self.addEventListener('notificationclick', function(e){
 const PRE_CACHE = [
   './',
   './index.html',
-  './icon-192.png',
-  './icon-512.png',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',

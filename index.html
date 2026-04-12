@@ -1004,7 +1004,11 @@ function initFirebase(){
   });
 }
 function forceSync(){
-  if(!fbRef){render();return;}
+  forceSyncWithCallback(null);
+}
+
+function forceSyncWithCallback(cb){
+  if(!fbRef){render();if(cb)cb();return;}
   const dot=document.getElementById('sync-dot-el');
   const lbl=document.getElementById('sync-lbl-el');
   if(lbl)lbl.innerText='Syncing…';
@@ -1014,10 +1018,14 @@ function forceSync(){
     localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
     render();
     if(lbl)lbl.innerText='Synced';
+    // Re-check notifications after sync
+    if(Notification.permission==='granted') checkDueNotifications();
+    if(cb)cb();
   }).catch(function(e){
     console.warn('Force sync failed:',e);
     render();
     if(lbl)lbl.innerText='Sync failed';
+    if(cb)cb();
   });
 }
 
@@ -2815,22 +2823,30 @@ function saveNotifTime(val){
 function fireNotif(title, body, tag, taskId){
   logNotif(title, body, taskId);
   if(!('Notification' in window)||Notification.permission!=='granted') return;
+  const uniqueTag=(tag||'tracker')+'-'+Date.now();
   try{
-    // Use service worker for background notifications if available
     if(navigator.serviceWorker&&navigator.serviceWorker.controller){
+      // Use SW for richer notifications (icon, vibration)
       navigator.serviceWorker.controller.postMessage({
-        type:'SHOW_NOTIF', title:title, body:body, tag:tag||'tracker'
+        type:'SHOW_NOTIF', title:title, body:body, tag:uniqueTag
       });
     } else {
-      new Notification(title,{body:body,tag:tag||'tracker',icon:'./manifest.json'});
+      // Fallback: direct Notification API (no icon needed)
+      new Notification(title,{body:body,tag:uniqueTag});
     }
   }catch(e){
-    try{new Notification(title,{body:body,tag:tag||'tracker'});}catch(e2){}
+    try{new Notification(title,{body:body});}catch(e2){}
   }
 }
 
+let _lastDueNotifAt=0;
 function checkDueNotifications(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
+  // Cooldown — don't fire more than once every 10 minutes
+  const now=Date.now();
+  if(now-_lastDueNotifAt<10*60*1000) return;
+  _lastDueNotifAt=now;
+
   const today=new Date();today.setHours(0,0,0,0);
   const active=tasks.filter(function(t){return t.status!=='done';});
   const overdue=active.filter(function(t){return t.dueDate&&new Date(t.dueDate)<today;});
@@ -3114,7 +3130,10 @@ updateDailyRing();
 
 // Re-sync when tab becomes visible again (fixes desktop stale data)
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible') forceSync();
+  if(document.visibilityState==='visible'){
+    forceSync();
+    if(Notification.permission==='granted') scheduleNotifLoop();
+  }
 });
 
 // ── Pull to refresh ───────────────────────────────────────────────────
@@ -3147,11 +3166,10 @@ document.addEventListener('visibilitychange',function(){
     if(dy>60){
       indicator.innerText='Syncing…';
       indicator.style.transform='translateX(-50%) translateY(4px)';
-      forceSync();
-      setTimeout(()=>{
+      forceSyncWithCallback(function(){
         indicator.style.transform='translateX(-50%) translateY(-48px)';
         indicator.innerText='Pull to refresh';
-      },1500);
+      });
     }
     pulling=false;startY=0;
   },{passive:true});
