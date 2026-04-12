@@ -986,11 +986,20 @@ function initFirebase(){
       }
     });
     // listen for real-time updates
+    let _fbFirstLoad=true;
     fbRef.on('value',snap=>{
       const data=snap.val();
       tasks=data?Object.values(data):[];
       localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
       render();
+      if(_fbFirstLoad){
+        _fbFirstLoad=false;
+        if(Notification.permission==='granted'){
+          setTimeout(checkDueNotifications,500);
+          setTimeout(checkStepNotifs,1000);
+          setTimeout(checkTimeBlockNotifs,1500);
+        }
+      }
     });
     // connection state
     db.ref('.info/connected').on('value',snap=>{
@@ -2839,13 +2848,13 @@ function fireNotif(title, body, tag, taskId){
   }
 }
 
-let _lastDueNotifAt=0;
+let _lastDueNotifDate='';
 function checkDueNotifications(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
-  // Cooldown — don't fire more than once every 10 minutes
-  const now=Date.now();
-  if(now-_lastDueNotifAt<10*60*1000) return;
-  _lastDueNotifAt=now;
+  // Only fire once per day per session
+  const todayStr=new Date().toISOString().split('T')[0];
+  if(_lastDueNotifDate===todayStr) return;
+  _lastDueNotifDate=todayStr;
 
   const today=new Date();today.setHours(0,0,0,0);
   const active=tasks.filter(function(t){return t.status!=='done';});
@@ -3115,7 +3124,6 @@ window.addEventListener('load',()=>{
   updateNotifUI();
   if(Notification.permission==='granted'){
     scheduleNotifLoop();
-    setTimeout(checkDueNotifications,1500);
   }
 });
 render();
