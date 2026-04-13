@@ -2881,18 +2881,21 @@ function fireNotif(title, body, tag, taskId){
   logNotif(title, body, taskId);
   if(!('Notification' in window)||Notification.permission!=='granted') return;
   const uniqueTag=(tag||'tracker')+'-'+Date.now();
-  try{
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller){
-      // Use SW for richer notifications (icon, vibration)
-      navigator.serviceWorker.controller.postMessage({
-        type:'SHOW_NOTIF', title:title, body:body, tag:uniqueTag
+  // Always try SW first — required on Android Chrome
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.ready.then(function(reg){
+      reg.showNotification(title,{
+        body:body,
+        tag:uniqueTag,
+        vibrate:[100,50,100],
+        requireInteraction:false
       });
-    } else {
-      // Fallback: direct Notification API (no icon needed)
-      new Notification(title,{body:body,tag:uniqueTag});
-    }
-  }catch(e){
-    try{new Notification(title,{body:body});}catch(e2){}
+    }).catch(function(){
+      // SW not available, fall back to direct API
+      try{new Notification(title,{body:body,tag:uniqueTag});}catch(e){}
+    });
+  } else {
+    try{new Notification(title,{body:body,tag:uniqueTag});}catch(e){}
   }
 }
 
