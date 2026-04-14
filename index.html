@@ -571,15 +571,15 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       
 
       <!-- Toolbar row 1: List/Analytics left · All/Work/Personal right -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 8px;flex-wrap:nowrap;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 8px;flex-wrap:wrap">
         <div class="mode-tabs" style="flex-shrink:0">
           <button class="mode-tab active" id="tab-view-list" onclick="setDashboardView('list')">List</button>
           <button class="mode-tab" id="tab-view-analytics" onclick="setDashboardView('analytics')">Stats</button>
         </div>
-        <div class="mode-tabs" style="flex-shrink:0">
+        <div class="mode-tabs" style="flex-shrink:0;min-width:0">
           <button class="mode-tab active" id="tab-all" onclick="setMode('all')" style="padding:8px 10px">All <span id="cnt-all" style="font-size:10px;opacity:0.75"></span></button>
           <button class="mode-tab" id="tab-work" onclick="setMode('work')" style="padding:8px 10px">Work <span id="cnt-work" style="font-size:10px;opacity:0.75"></span></button>
-          <button class="mode-tab" id="tab-personal" onclick="setMode('personal')" style="padding:8px 8px">Personal <span id="cnt-personal" style="font-size:10px;opacity:0.75"></span></button>
+          <button class="mode-tab" id="tab-personal" onclick="setMode('personal')" style="padding:8px 10px">Personal <span id="cnt-personal" style="font-size:10px;opacity:0.75"></span></button>
         </div>
       </div>
 
@@ -2083,6 +2083,9 @@ function showTaskDetail(id){
 
 
 
+const CAT_KEY='donezo_categories';
+const DEFAULT_CATS=[{id:'work',name:'Work',color:'#A3292D'},{id:'personal',name:'Personal',color:'#7c3aed'}];
+function loadCategories(){const raw=localStorage.getItem(CAT_KEY);if(!raw)return [...DEFAULT_CATS];const parsed=JSON.parse(raw);if(!parsed.find(x=>x.id==='work'))parsed.unshift({id:'work',name:'Work',color:'#A3292D'});if(!parsed.find(x=>x.id==='personal'))parsed.push({id:'personal',name:'Personal',color:'#7c3aed'});return parsed;}
 function saveCategories(cats){localStorage.setItem(CAT_KEY,JSON.stringify(cats));}
 
 function addCustomCategory(){
@@ -2845,10 +2848,12 @@ function fireNotif(title, body, tag, taskId){
 let _lastDueNotifDate='';
 function checkDueNotifications(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
-  // Only fire at 10:00, 13:00, 17:00
+  // Fire at 10:00, 13:00, 17:00 plus the user's saved daily reminder time
   const now=new Date();
   const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const savedTime=localStorage.getItem('donezo_notif_time')||'';
   const slots=['10:00','13:00','17:00'];
+  if(savedTime&&!slots.includes(savedTime)) slots.push(savedTime);
   const todaySlotKey='donezo_notif_fired_'+now.toISOString().split('T')[0]+'_'+hhmm;
   if(!slots.includes(hhmm)) return;
   if(sessionStorage.getItem(todaySlotKey)) return;
@@ -3108,8 +3113,16 @@ window.addEventListener('load',()=>{
   const fabCb=document.getElementById('ui-show-fab');if(fabCb)fabCb.checked=uiSettings.showFab!==false;
   const ss=document.getElementById('sort-select');if(ss)ss.value=sortMode;
   updateNotifUI();
+  // Start notification loop on load — covers cases where permission was granted
+  // in a previous session (common on Android PWA installs)
   if(Notification.permission==='granted'){
     scheduleNotifLoop();
+  }
+  // Also try after SW is ready (Android Chrome requires SW for showNotification)
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.ready.then(function(){
+      if(Notification.permission==='granted') scheduleNotifLoop();
+    });
   }
 });
 render();
