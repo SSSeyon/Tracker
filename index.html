@@ -392,6 +392,10 @@ input:checked+.slider:before{transform:translateX(16px)}
 .history-task-meta{font-size:11px;color:var(--text-muted);margin-top:3px}
 .history-step-item{display:flex;align-items:center;gap:8px;padding:5px 0 5px 12px;font-size:12px;color:var(--text-dim);font-weight:600;border-left:2px solid var(--border-color);margin:4px 0 4px 6px}
 .history-step-item::before{content:'↳';color:var(--text-muted);font-size:10px}
+.fab-add{position:fixed;bottom:28px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--grad);border:none;color:#fff;font-size:28px;line-height:1;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.22);z-index:4000;display:flex;align-items:center;justify-content:center;transition:transform 0.2s,box-shadow 0.2s;font-family:inherit}
+.fab-add:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(0,0,0,0.28)}
+.fab-add:active{transform:scale(0.95)}
+.fab-add.hidden{display:none}
 .notif-btn{position:relative;background:none;border:none;cursor:pointer;color:var(--text-main);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background 0.15s;flex-shrink:0}
 .notif-btn:hover{background:var(--bg-surface)}
 .notif-badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--work-red);display:none;border:1.5px solid var(--bg-sidebar)}
@@ -518,7 +522,6 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
     <div class="nav-item" id="nav-personal" onclick="setMode('personal');closeSidebarMobile()">Personal</div>
     <div class="sb-section-label">Account</div>
     <div class="nav-item" id="nav-gamify" onclick="setView('gamify');closeSidebarMobile()">&#127942; Progress</div>
-    <div class="nav-item" id="nav-templates" onclick="setView('templates');closeSidebarMobile()">&#128203; Templates</div>
     <div class="nav-item" id="nav-history" onclick="setView('history');closeSidebarMobile()">&#9989; History</div>
     <div class="nav-item" id="nav-archive" onclick="setView('archive');closeSidebarMobile()">Archive</div>
     <div class="nav-item" id="nav-settings" onclick="setView('settings');closeSidebarMobile()">Settings</div>
@@ -688,11 +691,12 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       <h1 class="page-title">Settings</h1>
       <div class="settings-group">
         <div class="chart-header" style="margin-bottom:8px">UI Customisation</div>
-        <div class="settings-item"><div><div class="settings-label">Show Eisenhower Quadrant</div><div class="settings-desc">Matrix badge on task cards</div></div><label class="switch"><input type="checkbox" id="ui-show-matrix" checked onchange="updateUISetting('showMatrix',this.checked)"><span class="slider"></span></label></div>
-        <div class="settings-item"><div><div class="settings-label">Show Priority / Status Emojis</div><div class="settings-desc">Visual indicators on task cards</div></div><label class="switch"><input type="checkbox" id="ui-show-emojis" checked onchange="updateUISetting('showEmojis',this.checked)"><span class="slider"></span></label></div>
-        <div class="settings-item"><div><div class="settings-label">Show Progress Bars</div><div class="settings-desc">Completion percentage and bar</div></div><label class="switch"><input type="checkbox" id="ui-show-progress" checked onchange="updateUISetting('showProgress',this.checked)"><span class="slider"></span></label></div>
-        <div class="settings-item"><div><div class="settings-label">Show Due Dates</div><div class="settings-desc">Deadline badge with urgency colour</div></div><label class="switch"><input type="checkbox" id="ui-show-dates" checked onchange="updateUISetting('showDates',this.checked)"><span class="slider"></span></label></div>
-        <div class="settings-item"><div><div class="settings-label">Show Step Counts</div><div class="settings-desc">Sub-step fraction e.g. 2/5</div></div><label class="switch"><input type="checkbox" id="ui-show-steps" checked onchange="updateUISetting('showSteps',this.checked)"><span class="slider"></span></label></div>
+        <div class="settings-item"><div><div class="settings-label">Floating Add Button</div><div class="settings-desc">Persistent + button visible on all pages</div></div><label class="switch"><input type="checkbox" id="ui-show-fab" checked onchange="updateUISetting('showFab',this.checked)"><span class="slider"></span></label></div>
+        
+        
+        
+        
+        
       </div>
       <div class="settings-group">
         <div class="chart-header" style="margin-bottom:8px">Data</div>
@@ -712,9 +716,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       </div>
       <div class="settings-group">
         <div class="chart-header" style="margin-bottom:8px">Appearance</div>
-        <div class="settings-label" style="margin-bottom:8px">Theme</div>
-        <div class="theme-grid" id="theme-grid"></div>
-        <div style="margin-bottom:12px"></div>
+        
         <div class="settings-item"><div><div class="settings-label">Sounds</div><div class="settings-desc">Task completion ding and UI feedback</div></div><button id="btn-sound" onclick="toggleSound()" class="ai-coach-btn" id="btn-sound-settings">&#128276; On</button></div>
         <div class="settings-item"><div><div class="settings-label">Focus Soundscape</div><div class="settings-desc">Sound played during Pomodoro timer</div></div><select id="noise-select" onchange="setNoiseType(this.value)" class="ms" style="font-size:12px"><option value="off">No sound</option><option value="white">White noise</option><option value="brown">Brown noise</option><option value="tick">Metronome tick</option></select></div>
         <div class="settings-item"><div><div class="settings-label">Dark Mode</div><div class="settings-desc">Switch between light and dark</div></div><button onclick="toggleDarkMode()" class="ai-coach-btn">Toggle</button></div>
@@ -722,12 +724,6 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
         <div class="settings-item" id="notif-time-row" style="display:none"><div><div class="settings-label">Daily reminder time</div><div class="settings-desc">Get a daily nudge at this time</div></div><input type="time" id="notif-time" class="mi" value="09:00" style="width:100px;height:32px;padding:0 8px;font-size:13px" onchange="saveNotifTime(this.value)"></div>
       </div>
 
-    </div>
-    <div class="content" id="view-templates" style="display:none">
-      <h1 class="page-title">Templates</h1>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Save tasks as templates to reuse them quickly. Steps are included.</p>
-      <div id="templates-list"></div>
-      <div style="margin-top:12px;font-size:12px;color:var(--text-muted);text-align:center">Save a task as a template from its detail panel</div>
     </div>
     <div class="content" id="view-archive" style="display:none">
       <h1 class="page-title">Archive</h1>
@@ -938,7 +934,6 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
     </div>
     <div class="detail-footer">
       <button class="detail-edit-btn" id="dp-edit-btn" onclick="editFromDetail()">Edit Task</button>
-      <button class="detail-del-btn" onclick="saveAsTemplate()" style="color:var(--p-med);border-color:var(--p-med)" title="Save as template">&#128203;</button>
       <button class="detail-del-btn" onclick="shareFromDetail()" style="color:var(--purple);border-color:var(--purple)" title="Share task"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="currentColor" stroke-width="2"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="currentColor" stroke-width="2"/></svg></button>
       <button class="detail-del-btn" id="dp-del-btn" onclick="deleteFromDetail()">Delete</button>
     </div>
@@ -1055,7 +1050,8 @@ function saveArch(arch){
 function fbDelete(id){
   if(fbRef)fbRef.child(id).remove().catch(e=>console.warn('FB delete error:',e));
 }
-let uiSettings=JSON.parse(localStorage.getItem(UI_KEY))||{showMatrix:true,showEmojis:true,showProgress:true,showDates:true,showSteps:true};
+let uiSettings=JSON.parse(localStorage.getItem(UI_KEY))||{showMatrix:true,showEmojis:true,showProgress:true,showDates:true,showSteps:true,showFab:true};
+uiSettings.showMatrix=true;uiSettings.showEmojis=true;uiSettings.showProgress=true;uiSettings.showDates=true;uiSettings.showSteps=true;
 let currentMode='all',currentDashboardView='list',sortMode=localStorage.getItem('donezo_sort')||'recent',currentView='dashboard';
 let editingId=null,currentCalDate=new Date(),selectedDateStr='',doneCollapsed=false,taskView='rows';
 window.currentModalSteps=[];
@@ -1537,10 +1533,22 @@ function getTrendData(){
     const d=new Date();d.setDate(d.getDate()-i);
     const ds=d.toISOString().split('T')[0];
     labels.push(i===0?'Today':d.getDate()+' '+mo[d.getMonth()]);
-    work.push(tasks.filter(t=>t.category==='work'&&t.status==='done'&&t.updatedAt&&
-      new Date(t.updatedAt).toISOString().split('T')[0]===ds).length);
-    personal.push(tasks.filter(t=>t.category==='personal'&&t.status==='done'&&t.updatedAt&&
-      new Date(t.updatedAt).toISOString().split('T')[0]===ds).length);
+    // Count completed tasks
+    let wCount=tasks.filter(t=>t.category==='work'&&t.status==='done'&&t.updatedAt&&
+      new Date(t.updatedAt).toISOString().split('T')[0]===ds).length;
+    let pCount=tasks.filter(t=>t.category==='personal'&&t.status==='done'&&t.updatedAt&&
+      new Date(t.updatedAt).toISOString().split('T')[0]===ds).length;
+    // Also count completed steps
+    tasks.forEach(function(t){
+      (t.steps||[]).filter(function(s){return s.status==='completed'&&s.completedAt;}).forEach(function(s){
+        if(new Date(s.completedAt).toISOString().split('T')[0]===ds){
+          if(t.category==='work') wCount++;
+          else pCount++;
+        }
+      });
+    });
+    work.push(wCount);
+    personal.push(pCount);
   }
   return{labels,work,personal};
 }
@@ -1804,9 +1812,10 @@ function render(){
 
   const E=id=>document.getElementById(id);
   const cntAll=document.getElementById('cnt-all'),cntW=document.getElementById('cnt-work'),cntP=document.getElementById('cnt-personal');
-  if(cntAll)cntAll.innerText='('+tasks.length+')';
-  if(cntW)cntW.innerText='('+tasks.filter(t=>t.category==='work').length+')';
-  if(cntP)cntP.innerText='('+tasks.filter(t=>t.category==='personal').length+')';
+  const incomplete=tasks.filter(t=>t.status!=='done');
+  if(cntAll)cntAll.innerText='('+incomplete.length+')';
+  if(cntW)cntW.innerText='('+incomplete.filter(t=>t.category==='work').length+')';
+  if(cntP)cntP.innerText='('+incomplete.filter(t=>t.category==='personal').length+')';
   const setBar=(n,pct)=>{const b=document.getElementById('st-bar-'+n);if(b)b.style.width=pct+'%'};
   if(currentMode==='all'){
     const total=tasks.length||1;
@@ -1933,6 +1942,7 @@ function render(){
     listEl.innerHTML=html;
   }
   renderCharts();renderHeatmap();renderCalendar();renderMatrixVisual();setTimeout(attachAllSwipes,60);
+  const fab=document.getElementById('fab-add');if(fab)fab.classList.toggle('hidden',!uiSettings.showFab);
   if(currentDashboardView==='analytics'){renderCompletionRate();renderProductiveInsights();renderCatCompletion();}
   updateDailyRing();
 }
@@ -2073,18 +2083,6 @@ function showTaskDetail(id){
 
 
 
-const TMPL_KEY='donezo_templates';
-function loadTemplates(){return JSON.parse(localStorage.getItem(TMPL_KEY)||'[]');}
-function saveTemplates(t){localStorage.setItem(TMPL_KEY,JSON.stringify(t));}
-
-
-const CAT_KEY='donezo_categories';
-const DEFAULT_CATS=[{id:'work',name:'Work',color:'#A3292D'},{id:'personal',name:'Personal',color:'#1a5c38'}];
-
-function loadCategories(){
-  const saved=localStorage.getItem(CAT_KEY);
-  return saved?JSON.parse(saved):DEFAULT_CATS;
-}
 function saveCategories(cats){localStorage.setItem(CAT_KEY,JSON.stringify(cats));}
 
 function addCustomCategory(){
@@ -2139,61 +2137,9 @@ function getCatColor(catId){
   const cat=cats.find(x=>x.id===catId);
   return cat?cat.color:'#9aa5b4';
 }
-function saveAsTemplate(){
-  const t=tasks.find(x=>x.id===detailTaskId);if(!t)return;
-  const tmpls=loadTemplates();
-  const tmpl={id:crypto.randomUUID(),name:t.name,category:t.category,priority:t.priority,
-    matrix:t.matrix,steps:(t.steps||[]).map(s=>({...s,id:crypto.randomUUID(),status:'not-started'}))};
-  tmpls.unshift(tmpl);
-  saveTemplates(tmpls);
-  showToast('Saved as template: '+t.name);
-}
 
-function applyTemplate(id){
-  const tmpls=loadTemplates();
-  const tmpl=tmpls.find(x=>x.id===id);if(!tmpl)return;
-  openModal();
-  document.getElementById('f-name').value=tmpl.name;
-  document.getElementById('f-cat').value=tmpl.category;
-  document.getElementById('f-priority').value=tmpl.priority;
-  document.getElementById('f-matrix').value=tmpl.matrix||'2';
-  window.currentModalSteps=tmpl.steps.map(s=>({...s,id:crypto.randomUUID()}));
-  renderModalSteps();
-  showToast('Template loaded — set your deadline and save');
-}
 
-function deleteTemplate(id){
-  saveTemplates(loadTemplates().filter(x=>x.id!==id));
-  renderTemplates();
-}
 
-function renderTemplates(){
-  const list=document.getElementById('templates-list');if(!list)return;
-  const tmpls=loadTemplates();
-  if(!tmpls.length){
-    list.innerHTML='<div class="empty-state"><div class="empty-state-title" style="font-size:15px;font-weight:700;color:var(--text-dim);margin-bottom:6px">No templates yet</div><div class="empty-state-sub" style="font-size:13px">Open a task detail panel and tap the template icon</div></div>';
-    return;
-  }
-  list.innerHTML=tmpls.map(function(t){
-    return '<div class="template-item" data-id="'+t.id+'">'
-      +'<div style="flex:1;min-width:0">'
-      +'<div class="template-name">'+t.name+'</div>'
-      +'<div class="template-meta">'+t.category+' &middot; '+t.steps.length+' step'+(t.steps.length!==1?'s':'')+'</div>'
-      +'</div>'
-      +'<button class="template-del" data-del="'+t.id+'" title="Delete template">&#215;</button>'
-      +'</div>';
-  }).join('');
-  list.querySelectorAll('.template-item[data-id]').forEach(function(el){
-    el.addEventListener('click',function(e){
-      if(!e.target.closest('[data-del]'))applyTemplate(el.dataset.id);
-    });
-  });
-  list.querySelectorAll('[data-del]').forEach(function(btn){
-    btn.addEventListener('click',function(e){
-      e.stopPropagation();deleteTemplate(btn.dataset.del);
-    });
-  });
-}
 function shareFromDetail(){
   const t=tasks.find(x=>x.id===detailTaskId);if(!t)return;
   const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2536,16 +2482,13 @@ function setView(v){
   document.getElementById('view-settings').style.display=v==='settings'?'block':'none';
   document.getElementById('view-archive').style.display=v==='archive'?'block':'none';
   document.getElementById('view-gamify').style.display=v==='gamify'?'block':'none';
-  document.getElementById('view-templates').style.display=v==='templates'?'block':'none';
   document.getElementById('view-history').style.display=v==='history'?'block':'none';
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const navId=v==='dashboard'?currentMode:(v==='gamify'?'gamify':v);
   const nav=document.getElementById('nav-'+navId);if(nav)nav.classList.add('active');
   if(v==='dashboard')render();
   if(v==='archive')renderArchive();
-  if(v==='settings')renderThemeGrid();
   if(v==='gamify')renderGamify();
-  if(v==='templates')renderTemplates();
   if(v==='history')renderHistory();
 }
 
@@ -3162,11 +3105,7 @@ if(localStorage.getItem('donezo_dark')==='true'){
   if(sun)sun.style.display='block';
 }
 window.addEventListener('load',()=>{
-  document.getElementById('ui-show-matrix').checked=uiSettings.showMatrix;
-  document.getElementById('ui-show-emojis').checked=uiSettings.showEmojis;
-  document.getElementById('ui-show-progress').checked=uiSettings.showProgress;
-  document.getElementById('ui-show-dates').checked=uiSettings.showDates;
-  document.getElementById('ui-show-steps').checked=uiSettings.showSteps;
+  const fabCb=document.getElementById('ui-show-fab');if(fabCb)fabCb.checked=uiSettings.showFab!==false;
   const ss=document.getElementById('sort-select');if(ss)ss.value=sortMode;
   updateNotifUI();
   if(Notification.permission==='granted'){
@@ -3300,5 +3239,6 @@ function installApp(){
 }
 
 </script>
+<button class="fab-add" id="fab-add" onclick="openModal()" title="New task">+</button>
 </body>
 </html>
