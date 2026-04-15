@@ -1295,21 +1295,29 @@ function updateDailyRing(){
   const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
 
   // Counting rules:
-  // 1. Each TASK with an explicit task-level due date of today or earlier = 1 unit
-  // 2. Each STEP with its own explicit due date of today or earlier = 1 additional unit
-  // "Done today" = task completed today (updatedAt=today) / step completed today (completedAt=today)
+  // Include a task/step if EITHER:
+  //   (a) it is due today or overdue AND still incomplete, OR
+  //   (b) it was completed TODAY (so today's effort is reflected)
+  // Tasks/steps completed on previous days are excluded — they belong to those days.
   let total=0,done=0;
+
+  function completedToday(ts){
+    if(!ts)return false;
+    const d=new Date(ts);d.setHours(0,0,0,0);
+    return d.getTime()===now.getTime();
+  }
 
   tasks.forEach(function(t){
     const steps=t.steps||[];
-
-    // ── Task itself (only if it has an explicit task-level due date) ───
     const taskDate=ringDueDate(t);
+
+    // ── Task itself ────────────────────────────────────────────────────
     if(taskDate&&taskDate<tomorrow){
-      total++;
-      if(t.status==='done'){
-        const ua=t.updatedAt;
-        if(ua){const ud=new Date(ua);ud.setHours(0,0,0,0);if(ud.getTime()===now.getTime())done++;}
+      const doneToday=t.status==='done'&&completedToday(t.updatedAt);
+      const incomplete=t.status!=='done';
+      if(incomplete||doneToday){
+        total++;
+        if(doneToday)done++;
       }
     }
 
@@ -1318,10 +1326,11 @@ function updateDailyRing(){
       if(!s.dueDate||!s.dueDate.trim())return;
       const sd=parseLocalDate(s.dueDate);
       if(!sd||sd>=tomorrow)return;
-      total++;
-      if(s.status==='completed'){
-        const ca=s.completedAt;
-        if(ca){const cd=new Date(ca);cd.setHours(0,0,0,0);if(cd.getTime()===now.getTime())done++;}
+      const doneToday=s.status==='completed'&&completedToday(s.completedAt);
+      const incomplete=s.status!=='completed';
+      if(incomplete||doneToday){
+        total++;
+        if(doneToday)done++;
       }
     });
   });
@@ -3251,31 +3260,34 @@ document.addEventListener('visibilitychange',function(){
     const todayStr=now.toISOString().split('T')[0];
     const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
     // Count items (tasks + steps) due today or overdue, completed today
-    let total=0,doneToday=0,overdue=0,dueTodayCount=0;
+    let total=0,doneTodayCount=0,overdue=0,dueTodayCount=0;
+    function ttCompletedToday(ts){
+      if(!ts)return false;
+      const d=new Date(ts);d.setHours(0,0,0,0);
+      return d.getTime()===now.getTime();
+    }
     tasks.forEach(function(t){
       const steps=t.steps||[];
-      // Task itself — only if it has an explicit task-level due date
       const taskDate=ringDueDate(t);
       if(taskDate&&taskDate<tomorrow){
-        total++;
-        if(t.status==='done'){
-          const ua=t.updatedAt;
-          if(ua){const ud=new Date(ua);ud.setHours(0,0,0,0);if(ud.getTime()===now.getTime())doneToday++;}
-        } else {
-          if(taskDate<now)overdue++; else dueTodayCount++;
+        const doneToday=t.status==='done'&&ttCompletedToday(t.updatedAt);
+        const incomplete=t.status!=='done';
+        if(incomplete||doneToday){
+          total++;
+          if(doneToday)doneTodayCount++;
+          else if(taskDate<now)overdue++; else dueTodayCount++;
         }
       }
-      // Steps with their own explicit due date
       steps.forEach(function(s){
         if(!s.dueDate||!s.dueDate.trim())return;
         const sd=parseLocalDate(s.dueDate);
         if(!sd||sd>=tomorrow)return;
-        total++;
-        if(s.status==='completed'){
-          const ca=s.completedAt;
-          if(ca){const cd=new Date(ca);cd.setHours(0,0,0,0);if(cd.getTime()===now.getTime())doneToday++;}
-        } else {
-          if(sd<now)overdue++; else dueTodayCount++;
+        const doneToday=s.status==='completed'&&ttCompletedToday(s.completedAt);
+        const incomplete=s.status!=='completed';
+        if(incomplete||doneToday){
+          total++;
+          if(doneToday)doneTodayCount++;
+          else if(sd<now)overdue++; else dueTodayCount++;
         }
       });
     });
@@ -3283,7 +3295,7 @@ document.addEventListener('visibilitychange',function(){
     if(!tip)return;
     tip.innerHTML='<div style="margin-bottom:6px;font-size:12px;font-weight:800;color:var(--text-main)">Today&#39;s Progress</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px">'
-      +'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--green)">&#10003; Done today</span><span>'+doneToday+'/'+total+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--green)">&#10003; Done today</span><span>'+doneTodayCount+'/'+total+'</span></div>'
       +(dueTodayCount?'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--p-med)">&#9679; Due today</span><span>'+dueTodayCount+'</span></div>':'')
       +(overdue?'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--red)">&#9888; Overdue</span><span>'+overdue+'</span></div>':'')
       +'</div>';
