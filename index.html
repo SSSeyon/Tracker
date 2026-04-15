@@ -2604,7 +2604,6 @@ function exportBackup(){
     archive:loadArch(),
     gamify:loadGamify(),
     categories:loadCategories(),
-    templates:loadTemplates(),
     settings:{
       dark:localStorage.getItem('donezo_dark'),
       sort:localStorage.getItem('donezo_sort'),
@@ -2651,8 +2650,6 @@ function importBackup(e){
       if(backup.categories) localStorage.setItem(CAT_KEY,JSON.stringify(backup.categories));
 
       // Restore templates
-      if(backup.templates) localStorage.setItem(TMPL_KEY,JSON.stringify(backup.templates));
-
       // Restore settings
       if(backup.settings){
         const s=backup.settings;
@@ -2692,15 +2689,22 @@ function importBackup(e){
   reader.readAsText(file);
 }
 function exportCSV(){
-  const headers=['Name','Category','Status','Priority','Matrix','Due Date','Progress','Steps Done','Steps Total'];
-  const rows=tasks.map(t=>{
+  const esc=v=>'"'+String(v==null?'':''+v).replace(/"/g,'""')+'"';
+  const headers=['Type','Task Name','Step Name','Category','Status','Priority','Matrix','Due Date','Completed At','Steps Done','Steps Total'];
+  const rows=[];
+  tasks.forEach(function(t){
     const steps=t.steps||[];
     const doneS=steps.filter(s=>s.status==='completed').length;
-    const prog=t.status==='done'?100:steps.length?Math.round(doneS/steps.length*100):(t.manualProgress||0);
-    return[t.name,t.category,t.status,t.priority,t.matrix||'4',t.dueDate||'',prog+'%',doneS,steps.length]
-      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+    const completedAt=t.status==='done'&&t.updatedAt?new Date(t.updatedAt).toISOString().split('T')[0]:'';
+    // Task row
+    rows.push(['Task',t.name,'',t.category,t.status,t.priority,t.matrix||'4',t.dueDate||'',completedAt,doneS,steps.length].map(esc).join(','));
+    // Step rows
+    steps.forEach(function(s){
+      const sCompletedAt=s.status==='completed'&&s.completedAt?new Date(s.completedAt).toISOString().split('T')[0]:'';
+      rows.push(['Step',t.name,s.text,t.category,s.status,'','',s.dueDate||'',sCompletedAt,'',''].map(esc).join(','));
+    });
   });
-  const csv=[headers.join(','),...rows].join('\n');
+  const csv=[headers.map(esc).join(','),...rows].join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download='tasks-'+new Date().toISOString().split('T')[0]+'.csv';
