@@ -573,15 +573,15 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       
 
       <!-- Toolbar row 1: List/Analytics left · All/Work/Personal right -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin:16px 0 8px;flex-wrap:nowrap">
         <div class="mode-tabs" style="flex-shrink:0">
-          <button class="mode-tab active" id="tab-view-list" onclick="setDashboardView('list')">List</button>
-          <button class="mode-tab" id="tab-view-analytics" onclick="setDashboardView('analytics')">Stats</button>
+          <button class="mode-tab active" id="tab-view-list" onclick="setDashboardView('list')" style="padding:7px 14px;font-size:12px">List</button>
+          <button class="mode-tab" id="tab-view-analytics" onclick="setDashboardView('analytics')" style="padding:7px 14px;font-size:12px">Stats</button>
         </div>
-        <div class="mode-tabs" style="flex-shrink:0;min-width:0">
-          <button class="mode-tab active" id="tab-all" onclick="setMode('all')" style="padding:8px 10px">All <span id="cnt-all" style="font-size:10px;opacity:0.75"></span></button>
-          <button class="mode-tab" id="tab-work" onclick="setMode('work')" style="padding:8px 10px">Work <span id="cnt-work" style="font-size:10px;opacity:0.75"></span></button>
-          <button class="mode-tab" id="tab-personal" onclick="setMode('personal')" style="padding:8px 10px">Personal <span id="cnt-personal" style="font-size:10px;opacity:0.75"></span></button>
+        <div class="mode-tabs" style="flex-shrink:0">
+          <button class="mode-tab active" id="tab-all" onclick="setMode('all')" style="padding:7px 10px;font-size:12px">All <span id="cnt-all" style="font-size:10px;opacity:0.75"></span></button>
+          <button class="mode-tab" id="tab-work" onclick="setMode('work')" style="padding:7px 10px;font-size:12px">Work <span id="cnt-work" style="font-size:10px;opacity:0.75"></span></button>
+          <button class="mode-tab" id="tab-personal" onclick="setMode('personal')" style="padding:7px 8px;font-size:12px">Personal <span id="cnt-personal" style="font-size:10px;opacity:0.75"></span></button>
         </div>
       </div>
 
@@ -1295,13 +1295,49 @@ function updateDailyRing(){
     return td||sd;
   }
 
-  // All tasks due today or overdue (regardless of status)
-  const relevant=tasks.filter(function(t){
-    const d=ringDueDate(t);
-    return d&&d<tomorrow;
+  const todayStr=now.toISOString().split('T')[0];
+
+  // Count individual items (tasks + steps) that are due today or overdue
+  let total=0,done=0;
+
+  tasks.forEach(function(t){
+    const steps=t.steps||[];
+    const hasSteps=steps.length>0;
+
+    if(hasSteps){
+      // Task with steps: count each relevant step individually
+      steps.forEach(function(s){
+        const sd=s.dueDate&&s.dueDate.trim()?parseLocalDate(s.dueDate):null;
+        // Also treat step as relevant if its parent task is due/overdue and step is incomplete
+        const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
+        const relevant=sd?(sd<tomorrow):(td&&td<tomorrow&&s.status!=='completed');
+        if(!relevant)return;
+        total++;
+        if(s.status==='completed'){
+          // Count as done only if completed today
+          const ca=s.completedAt;
+          if(ca){
+            const cd=new Date(ca);cd.setHours(0,0,0,0);
+            if(cd.getTime()===now.getTime()) done++;
+          }
+        }
+      });
+    } else {
+      // Task without steps: count the task itself
+      const d=ringDueDate(t);
+      if(!d||d>=tomorrow) return;
+      total++;
+      if(t.status==='done'){
+        // Count as done only if completed today (use updatedAt as proxy)
+        const ua=t.updatedAt;
+        if(ua){
+          const ud=new Date(ua);ud.setHours(0,0,0,0);
+          if(ud.getTime()===now.getTime()) done++;
+        }
+      }
+    }
   });
-  const total=relevant.length;
-  const done=relevant.filter(function(t){return t.status==='done';}).length;
+
   const pct=total>0?Math.min(1,done/total):0;
   const circumference=75.4;
   const offset=circumference-(pct*circumference);
@@ -3219,17 +3255,47 @@ document.addEventListener('visibilitychange',function(){
   const ring=document.getElementById('daily-ring');
   if(!ring)return;
   function showRingTooltip(){
-    const today=new Date().toISOString().split('T')[0];
-    const allDue=tasks.filter(t=>t.dueDate&&(t.dueDate===today||(t.dueDate<today&&t.status!=='done')));
-    const done=allDue.filter(t=>t.status==='done').length;
-    const overdue=allDue.filter(t=>t.dueDate<today&&t.status!=='done').length;
-    const dueToday=allDue.filter(t=>t.dueDate===today&&t.status!=='done').length;
+    const now=new Date();now.setHours(0,0,0,0);
+    const todayStr=now.toISOString().split('T')[0];
+    const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
+    // Count items (tasks + steps) due today or overdue, completed today
+    let total=0,doneToday=0,overdue=0,dueTodayCount=0;
+    tasks.forEach(function(t){
+      const steps=t.steps||[];
+      if(steps.length>0){
+        steps.forEach(function(s){
+          const sd=s.dueDate&&s.dueDate.trim()?parseLocalDate(s.dueDate):null;
+          const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
+          const relevant=sd?(sd<tomorrow):(td&&td<tomorrow&&s.status!=='completed');
+          if(!relevant)return;
+          total++;
+          if(s.status==='completed'){
+            const ca=s.completedAt;
+            if(ca){const cd=new Date(ca);cd.setHours(0,0,0,0);if(cd.getTime()===now.getTime())doneToday++;}
+          } else {
+            if(sd&&sd<now)overdue++;
+            else dueTodayCount++;
+          }
+        });
+      } else {
+        const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
+        if(!td||td>=tomorrow)return;
+        total++;
+        if(t.status==='done'){
+          const ua=t.updatedAt;
+          if(ua){const ud=new Date(ua);ud.setHours(0,0,0,0);if(ud.getTime()===now.getTime())doneToday++;}
+        } else {
+          if(td<now)overdue++;
+          else dueTodayCount++;
+        }
+      }
+    });
     const tip=document.getElementById('ring-tooltip');
     if(!tip)return;
-    tip.innerHTML='<div style="margin-bottom:6px;font-size:12px;font-weight:800;color:var(--text-main)">Today - Tasks</div>'
+    tip.innerHTML='<div style="margin-bottom:6px;font-size:12px;font-weight:800;color:var(--text-main)">Today&#39;s Progress</div>'
       +'<div style="display:flex;flex-direction:column;gap:4px">'
-      +'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--green)">&#10003; Done</span><span>'+done+'</span></div>'
-      +(dueToday?'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--p-med)">&#9679; Due today</span><span>'+dueToday+'</span></div>':'')
+      +'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--green)">&#10003; Done today</span><span>'+doneToday+'/'+total+'</span></div>'
+      +(dueTodayCount?'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--p-med)">&#9679; Due today</span><span>'+dueTodayCount+'</span></div>':'')
       +(overdue?'<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:var(--red)">&#9888; Overdue</span><span>'+overdue+'</span></div>':'')
       +'</div>';
     tip.style.display='block';
