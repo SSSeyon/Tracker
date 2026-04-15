@@ -1280,62 +1280,56 @@ function onTaskCompleted(task){
 
 function parseLocalDate(str){if(!str||!str.trim())return null;const p=str.split('-');if(p.length!==3)return null;const d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));return isNaN(d.getTime())?null:d;}
 
+// Shared helpers used by updateDailyRing and the ring tooltip
+function mostUrgentStepDate(t){
+  const dates=(t.steps||[]).filter(function(s){return s.status!=='completed'&&s.dueDate&&s.dueDate.trim();}).map(function(s){return parseLocalDate(s.dueDate);}).filter(Boolean);
+  return dates.length?new Date(Math.min.apply(null,dates)):null;
+}
+function ringDueDate(t){
+  const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
+  const sd=mostUrgentStepDate(t);
+  if(td&&sd)return sd<td?sd:td;
+  return td||sd;
+}
 function updateDailyRing(){
   const now=new Date();now.setHours(0,0,0,0);
   const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
 
-  function mostUrgentStepDate(t){
-    const dates=(t.steps||[]).filter(function(s){return s.status!=='completed'&&s.dueDate&&s.dueDate.trim();}).map(function(s){return parseLocalDate(s.dueDate);}).filter(Boolean);
-    return dates.length?new Date(Math.min.apply(null,dates)):null;
-  }
-  function ringDueDate(t){
-    const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
-    const sd=mostUrgentStepDate(t);
-    if(td&&sd)return sd<td?sd:td;
-    return td||sd;
-  }
-
   const todayStr=now.toISOString().split('T')[0];
 
-  // Count individual items (tasks + steps) that are due today or overdue
+  // Counting rules:
+  // 1. Each TASK is one unit — counted if its effective due date (task or earliest step) is today or overdue
+  // 2. Each STEP with its OWN explicit due date is also a separate unit
+  //    (but only if that step due date is today or overdue — NOT just because its parent task is due)
+  // Done = completed today (task: updatedAt today; step: completedAt today)
   let total=0,done=0;
 
   tasks.forEach(function(t){
+    const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
     const steps=t.steps||[];
-    const hasSteps=steps.length>0;
 
-    if(hasSteps){
-      // Task with steps: count each relevant step individually
-      steps.forEach(function(s){
-        const sd=s.dueDate&&s.dueDate.trim()?parseLocalDate(s.dueDate):null;
-        // Also treat step as relevant if its parent task is due/overdue and step is incomplete
-        const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
-        const relevant=sd?(sd<tomorrow):(td&&td<tomorrow&&s.status!=='completed');
-        if(!relevant)return;
-        total++;
-        if(s.status==='completed'){
-          // Count as done only if completed today
-          const ca=s.completedAt;
-          if(ca){
-            const cd=new Date(ca);cd.setHours(0,0,0,0);
-            if(cd.getTime()===now.getTime()) done++;
-          }
-        }
-      });
-    } else {
-      // Task without steps: count the task itself
-      const d=ringDueDate(t);
-      if(!d||d>=tomorrow) return;
+    // ── Count the task itself ──────────────────────────────────────────
+    const effectiveDate=ringDueDate(t);
+    if(effectiveDate&&effectiveDate<tomorrow){
       total++;
       if(t.status==='done'){
-        // Count as done only if completed today (use updatedAt as proxy)
+        // Completed today?
         const ua=t.updatedAt;
-        if(ua){
-          const ud=new Date(ua);ud.setHours(0,0,0,0);
-          if(ud.getTime()===now.getTime()) done++;
-        }
+        if(ua){const ud=new Date(ua);ud.setHours(0,0,0,0);if(ud.getTime()===now.getTime())done++;}
       }
     }
+
+    // ── Count steps that have their OWN explicit due date ─────────────
+    steps.forEach(function(s){
+      if(!s.dueDate||!s.dueDate.trim())return; // skip steps with no due date
+      const sd=parseLocalDate(s.dueDate);
+      if(!sd||sd>=tomorrow)return; // only today/overdue
+      total++;
+      if(s.status==='completed'){
+        const ca=s.completedAt;
+        if(ca){const cd=new Date(ca);cd.setHours(0,0,0,0);if(cd.getTime()===now.getTime())done++;}
+      }
+    });
   });
 
   const pct=total>0?Math.min(1,done/total):0;
@@ -3262,33 +3256,31 @@ document.addEventListener('visibilitychange',function(){
     let total=0,doneToday=0,overdue=0,dueTodayCount=0;
     tasks.forEach(function(t){
       const steps=t.steps||[];
-      if(steps.length>0){
-        steps.forEach(function(s){
-          const sd=s.dueDate&&s.dueDate.trim()?parseLocalDate(s.dueDate):null;
-          const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
-          const relevant=sd?(sd<tomorrow):(td&&td<tomorrow&&s.status!=='completed');
-          if(!relevant)return;
-          total++;
-          if(s.status==='completed'){
-            const ca=s.completedAt;
-            if(ca){const cd=new Date(ca);cd.setHours(0,0,0,0);if(cd.getTime()===now.getTime())doneToday++;}
-          } else {
-            if(sd&&sd<now)overdue++;
-            else dueTodayCount++;
-          }
-        });
-      } else {
-        const td=t.dueDate&&t.dueDate.trim()?parseLocalDate(t.dueDate):null;
-        if(!td||td>=tomorrow)return;
+      // Count task itself
+      const effectiveDate=ringDueDate(t);
+      if(effectiveDate&&effectiveDate<tomorrow){
         total++;
         if(t.status==='done'){
           const ua=t.updatedAt;
-          if(ua){const ud=new Date(ua);ud.setHours(0,0,0,0);if(ud.getTime()===now.getTime())doneToday++;}
+          if(ua){const ud=new Date(ua);ud.setHours(0,0,0,0);if(ud.getTime()===now.getTime())doneToday++;
+          } else if(effectiveDate<now)overdue++; else dueTodayCount++;
         } else {
-          if(td<now)overdue++;
-          else dueTodayCount++;
+          if(effectiveDate<now)overdue++; else dueTodayCount++;
         }
       }
+      // Count steps with their own explicit due date
+      steps.forEach(function(s){
+        if(!s.dueDate||!s.dueDate.trim())return;
+        const sd=parseLocalDate(s.dueDate);
+        if(!sd||sd>=tomorrow)return;
+        total++;
+        if(s.status==='completed'){
+          const ca=s.completedAt;
+          if(ca){const cd=new Date(ca);cd.setHours(0,0,0,0);if(cd.getTime()===now.getTime())doneToday++;}
+        } else {
+          if(sd<now)overdue++; else dueTodayCount++;
+        }
+      });
     });
     const tip=document.getElementById('ring-tooltip');
     if(!tip)return;
