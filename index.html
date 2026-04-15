@@ -957,7 +957,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.0.1';
+const APP_VERSION='1.1.0';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1082,7 +1082,7 @@ function fbDelete(id){
 let uiSettings=JSON.parse(localStorage.getItem(UI_KEY))||{showMatrix:true,showEmojis:true,showProgress:true,showDates:true,showSteps:true,showFab:true};
 uiSettings.showMatrix=true;uiSettings.showEmojis=true;uiSettings.showProgress=true;uiSettings.showDates=true;uiSettings.showSteps=true;
 let currentMode='all',currentDashboardView='list',sortMode=localStorage.getItem('donezo_sort')||'recent',currentView='dashboard';
-let editingId=null,currentCalDate=new Date(),selectedDateStr='',doneCollapsed=false,taskView='rows';
+let editingId=null,currentCalDate=new Date(),selectedDateStr='',doneCollapsed=true,taskView='rows';
 window.currentModalSteps=[];
 let charts={category:null,trend:null};
 let renderTimer=null;
@@ -1179,12 +1179,19 @@ function renderThemeGrid(){
 function initTheme(){
   const saved = localStorage.getItem(THEME_KEY) || 'default';
   applyTheme(saved, false);
-  // Sync from Firebase
+  // Sync theme + sort from Firebase
   if(db){
-    db.ref('meta/theme').once('value').then(function(snap){
-      if(snap.val() && snap.val() !== saved){
-        applyTheme(snap.val(), false);
-        localStorage.setItem(THEME_KEY, snap.val());
+    db.ref('meta').once('value').then(function(snap){
+      const meta=snap.val()||{};
+      if(meta.theme && meta.theme !== saved){
+        applyTheme(meta.theme, false);
+        localStorage.setItem(THEME_KEY, meta.theme);
+      }
+      if(meta.sort && meta.sort !== sortMode){
+        sortMode=meta.sort;
+        localStorage.setItem('donezo_sort',meta.sort);
+        const ss=document.getElementById('sort-select');if(ss)ss.value=sortMode;
+        render();
       }
     }).catch(function(){});
   }
@@ -1243,8 +1250,8 @@ function onTaskCompleted(task){
 
   // week work done (rolling 7d)
   const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
-  g.weekWorkDone=tasks.filter(t=>t.status==='done'&&t.category==='work'&&t.updatedAt&&
-    new Date(t.updatedAt).toISOString().split('T')[0]>=weekAgo).length;
+  g.weekWorkDone=tasks.filter(t=>t.status==='done'&&t.category==='work'&&(t.completedAt||t.updatedAt)&&
+    new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]>=weekAgo).length;
 
   // daily goal
   if(g.todayDone>=g.dailyGoal&&(g.lastGoalHitDate!==today)){
@@ -1308,6 +1315,9 @@ function updateDailyRing(){
     const d=new Date(ts);d.setHours(0,0,0,0);
     return d.getTime()===now.getTime();
   }
+  function taskCompletedToday(t){
+    return t.status==='done'&&completedToday(t.completedAt||t.updatedAt);
+  }
 
   tasks.forEach(function(t){
     const steps=t.steps||[];
@@ -1315,7 +1325,7 @@ function updateDailyRing(){
 
     // ── Task itself ────────────────────────────────────────────────────
     if(taskDate&&taskDate<tomorrow){
-      const doneToday=t.status==='done'&&completedToday(t.updatedAt);
+      const doneToday=taskCompletedToday(t);
       const incomplete=t.status!=='done';
       if(incomplete||doneToday){
         total++;
@@ -1393,7 +1403,7 @@ function renderGamify(){
   if(chalEl){
     // compute progress per challenge
     const todayWorkDone=tasks.filter(t=>t.status==='done'&&t.category==='work'&&
-      t.updatedAt&&new Date(t.updatedAt).toISOString().split('T')[0]===today).length;
+      (t.completedAt||t.updatedAt)&&new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]===today).length;
     const vals={todayDone,weekWorkDone:g.weekWorkDone,highDone:g.highDone,
       currentStreak:g.currentStreak,personalDone:g.personalDone};
     chalEl.innerHTML=CHALLENGES.map(ch=>{
@@ -1596,10 +1606,10 @@ function getTrendData(){
     const ds=d.toISOString().split('T')[0];
     labels.push(i===0?'Today':d.getDate()+' '+mo[d.getMonth()]);
     // Count completed tasks
-    let wCount=tasks.filter(t=>t.category==='work'&&t.status==='done'&&t.updatedAt&&
-      new Date(t.updatedAt).toISOString().split('T')[0]===ds).length;
-    let pCount=tasks.filter(t=>t.category==='personal'&&t.status==='done'&&t.updatedAt&&
-      new Date(t.updatedAt).toISOString().split('T')[0]===ds).length;
+    let wCount=tasks.filter(t=>t.category==='work'&&t.status==='done'&&(t.completedAt||t.updatedAt)&&
+      new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]===ds).length;
+    let pCount=tasks.filter(t=>t.category==='personal'&&t.status==='done'&&(t.completedAt||t.updatedAt)&&
+      new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]===ds).length;
     // Also count completed steps
     tasks.forEach(function(t){
       (t.steps||[]).filter(function(s){return s.status==='completed'&&s.completedAt;}).forEach(function(s){
@@ -1622,7 +1632,7 @@ function renderCompletionRate(){
   function weekDone(weeksAgo){
     const start=new Date(now);start.setDate(now.getDate()-now.getDay()-(weeksAgo*7));start.setHours(0,0,0,0);
     const end=new Date(start);end.setDate(start.getDate()+7);
-    return tasks.filter(t=>t.status==='done'&&t.updatedAt&&t.updatedAt>=start.getTime()&&t.updatedAt<end.getTime()).length;
+    return tasks.filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)&&(t.completedAt||t.updatedAt)>=start.getTime()&&(t.completedAt||t.updatedAt)<end.getTime()).length;
   }
   const thisWeek=weekDone(0);
   const lastWeek=weekDone(1);
@@ -1650,8 +1660,8 @@ function renderProductiveInsights(){
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const dayCounts=Array(7).fill(0);
   const hourCounts=Array(24).fill(0);
-  tasks.filter(t=>t.status==='done'&&t.updatedAt).forEach(t=>{
-    const d=new Date(t.updatedAt);
+  tasks.filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)).forEach(t=>{
+    const d=new Date(t.completedAt||t.updatedAt);
     dayCounts[d.getDay()]++;
     hourCounts[d.getHours()]++;
   });
@@ -1858,7 +1868,7 @@ function render(){
 
   let filtered=tasks.filter(t=>{
     const mOk=currentMode==='all'||t.category===currentMode;
-    const sOk=!search||t.name.toLowerCase().includes(search)||(t.dueDate||'').includes(search)||(t.notes||'').toLowerCase().includes(search);
+    const sOk=!search||t.name.toLowerCase().includes(search)||(t.dueDate||'').includes(search)||(t.notes||'').toLowerCase().includes(search)||(t.steps||[]).some(s=>s.text&&s.text.toLowerCase().includes(search));
     const qOk=matrixFilter==='all'||(t.matrix||'4')===matrixFilter;
     return mOk&&sOk&&qOk;
   });
@@ -1926,7 +1936,7 @@ function render(){
       return '<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+
         '" data-id="'+t.id+'">'+'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'+'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'
         +'<button class="tr-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></button>'
-        +'<span class="tr-name'+(isDone?' done':'')+'" onclick="showTaskDetail(\''+t.id+'\')">'+t.name+'</span>'
+        +(function(){const bl=tasks.filter(x=>x.blocking===t.id&&x.status!=='done');const cls='"tr-name'+(isDone?' done':'')+'"';const inner=t.name+(bl.length?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle;opacity:1">BLOCKED</span>':'');const style=bl.length?'opacity:0.55;':'';return'<span class='+cls+' onclick="showTaskDetail(\''+t.id+'\')" style="'+style+'">'+inner+'</span>';}())
         +'<div class="tr-right">'
         +'<span class="tr-chip" style="background:'+pBg[t.priority]+';color:'+pCol[t.priority]+'">'+t.priority+'</span>'
         +dueHtml+stepsHtml
@@ -1953,7 +1963,8 @@ function render(){
         +(uiSettings.showMatrix?'<span class="matrix-badge q'+mVal+'">'+mLabel+'</span>':'')
         +(uiSettings.showDates?dueDateChip(t.dueDate,isDone):'')
         +(uiSettings.showSteps&&steps.length?'<span style="color:var(--purple)">'+doneS+'/'+steps.length+' steps</span>':'');
-      return '<div class="task-card'+(isDone?' is-done':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+t.name+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
+      const isBlocked=(function(){return tasks.filter(function(x){return x.blocking===t.id&&x.status!=='done';}).length>0;}());
+      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+'" style="'+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+t.name+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'')+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
     }
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;
@@ -2416,7 +2427,7 @@ function saveTask(){
   const n=document.getElementById('f-name').value.trim();
   if(!n){showToast('Task title is required');document.getElementById('f-name').focus();return}
   const existing=editingId?tasks.find(x=>x.id===editingId):null;
-  const t={id:editingId||crypto.randomUUID(),name:n,createdAt:existing?existing.createdAt||Date.now():Date.now(),category:document.getElementById('f-cat').value,priority:document.getElementById('f-priority').value,matrix:document.getElementById('f-matrix').value,status:document.getElementById('f-status').value,dueDate:document.getElementById('f-due').value,steps:window.currentModalSteps,manualProgress:existing?existing.manualProgress||0:0,repeat:document.getElementById('f-repeat').value||'none',blocking:document.getElementById('f-blocking').value||'',startTime:document.getElementById('f-start-time').value||'',duration:parseInt(document.getElementById('f-duration').value)||0,updatedAt:Date.now()};
+  const t={id:editingId||crypto.randomUUID(),name:n,createdAt:existing?existing.createdAt||Date.now():Date.now(),completedAt:existing&&existing.status==='done'?existing.completedAt||null:null,category:document.getElementById('f-cat').value,priority:document.getElementById('f-priority').value,matrix:document.getElementById('f-matrix').value,status:document.getElementById('f-status').value,dueDate:document.getElementById('f-due').value,steps:window.currentModalSteps,manualProgress:existing?existing.manualProgress||0:0,repeat:document.getElementById('f-repeat').value||'none',blocking:document.getElementById('f-blocking').value||'',startTime:document.getElementById('f-start-time').value||'',duration:parseInt(document.getElementById('f-duration').value)||0,updatedAt:Date.now()};
   logHistory(t,editingId?'Edited':'Created');
   if(editingId)tasks=tasks.map(x=>x.id===editingId?t:x);else tasks.push(t);
   localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
@@ -2429,6 +2440,14 @@ function toggleDone(id,event){
   const t=tasks.find(x=>x.id===id);if(!t)return;
   const wasDone=t.status==='done';
   t.status=wasDone?'todo':'done';t.updatedAt=Date.now();
+  if(!wasDone){
+    t.completedAt=Date.now();
+    const incomplete=(t.steps||[]).filter(s=>s.status!=='completed');
+    if(incomplete.length){
+      incomplete.forEach(s=>{s.status='completed';s.completedAt=Date.now();});
+      setTimeout(()=>showToast('Task done — '+incomplete.length+' step'+(incomplete.length>1?'s':'')+' auto-completed'),600);
+    }
+  } else {delete t.completedAt;}
   logHistory(t,t.status==='done'?'Marked done':'Reopened');
   if(!wasDone){onTaskCompleted(t);playDing();haptic('complete');}
   localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
@@ -2539,7 +2558,7 @@ function setDashboardView(v){
   render();
 }
 
-function setSortMode(m){sortMode=m;localStorage.setItem('donezo_sort',m);render()}
+function setSortMode(m){sortMode=m;localStorage.setItem('donezo_sort',m);if(fbRef)fbRef.parent.child('meta/sort').set(m).catch(()=>{});render();}
 
 function setView(v){
   currentView=v;
@@ -2706,7 +2725,7 @@ function exportCSV(){
   tasks.forEach(function(t){
     const steps=t.steps||[];
     const doneS=steps.filter(s=>s.status==='completed').length;
-    const completedAt=t.status==='done'&&t.updatedAt?new Date(t.updatedAt).toISOString().split('T')[0]:'';
+    const completedAt=t.status==='done'&&(t.completedAt||t.updatedAt)?new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]:'';
     // Task row
     rows.push(['Task',t.name,'',t.category,t.status,t.priority,t.matrix||'4',t.dueDate||'',completedAt,doneS,steps.length].map(esc).join(','));
     // Step rows
@@ -3032,16 +3051,16 @@ function renderHistory(){
   const buckets={};
 
   // Completed tasks — use updatedAt
-  tasks.filter(t=>t.status==='done'&&t.updatedAt&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
-    const d=new Date(t.updatedAt);
+  tasks.filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
+    const d=new Date(t.completedAt||t.updatedAt);
     const key=d.toISOString().split('T')[0];
     if(!buckets[key])buckets[key]=[];
-    buckets[key].push({type:'task',task:t,completedAt:t.updatedAt});
+    buckets[key].push({type:'task',task:t,completedAt:t.completedAt||t.updatedAt});
   });
 
   // Also check archive for tasks completed before archiving
-  loadArch().filter(t=>t.updatedAt&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
-    const d=new Date(t.updatedAt);
+  loadArch().filter(t=>(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
+    const d=new Date(t.completedAt||t.updatedAt);
     const key=d.toISOString().split('T')[0];
     if(!buckets[key])buckets[key]=[];
     // Only add if status was done
