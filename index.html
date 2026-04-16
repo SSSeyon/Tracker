@@ -294,8 +294,8 @@ body.theme-personal .nav-item.active{background:#e8f5ee;color:var(--green)}
 .time-block-name{font-size:13px;font-weight:600;color:var(--text-main);flex:1}
 .time-block-dur{font-size:10px;font-weight:700;color:var(--purple)}
 .focus-start-slot{font-size:11px;color:var(--text-muted);margin-bottom:8px}
-.date-quick-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.date-qbtn{padding:5px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-dim);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s}
+.date-quick-btns{display:flex;gap:4px;flex-wrap:nowrap;margin-top:6px;overflow-x:auto}
+.date-qbtn{padding:5px 8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-dim);font-family:inherit;font-size:10.5px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
 .date-qbtn:hover,.date-qbtn.active{background:var(--grad);color:#fff;border-color:transparent}
 .detail-footer{display:flex;gap:10px;padding:16px 22px 0}
 .detail-edit-btn{flex:1;padding:11px;border-radius:12px;border:none;background:var(--grad);color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:filter 0.15s}
@@ -957,7 +957,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.0';
+const APP_VERSION='1.0.2';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1595,7 +1595,7 @@ function showToast(msg,undoFn){
 function renderModalSteps(){
   const c=document.getElementById('steps-list');if(!c)return;
   if(!window.currentModalSteps.length){c.innerHTML=`<div style="text-align:center;font-size:11px;color:var(--text-muted)">No steps added</div>`;return}
-  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div style="display:flex;align-items:center;gap:8px"><button onclick="cycleStepStatus('${s.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);font-size:10px;min-width:80px;cursor:pointer;background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'#eee'};color:${s.status==='not-started'?'#333':'#fff'};font-family:inherit">${s.status.replace('-',' ')}</button><input value="${s.text}" oninput="updateStepText('${s.id}',this.value)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:transparent;color:var(--text-main);font-family:inherit" placeholder="Step description…"><button onclick="removeStep('${s.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button></div><div style="display:flex;align-items:center;gap:8px;padding-left:88px;flex-wrap:wrap"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Deadline:</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Time:</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"></div></div></div>`).join('');
+  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div style="display:flex;align-items:center;gap:8px"><button onclick="cycleStepStatus('${s.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);font-size:10px;min-width:80px;cursor:pointer;background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'#eee'};color:${s.status==='not-started'?'#333':'#fff'};font-family:inherit">${s.status.replace('-',' ')}</button><input value="${s.text}" oninput="updateStepText('${s.id}',this.value)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:transparent;color:var(--text-main);font-family:inherit" placeholder="Step description…"><button onclick="removeStep('${s.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button></div><div style="display:flex;align-items:center;gap:8px;padding-left:0;flex-wrap:nowrap;overflow-x:auto"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Deadline:</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Time:</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"></div></div></div>`).join('');
 }
 
 function getTrendData(){
