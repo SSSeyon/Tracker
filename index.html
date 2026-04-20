@@ -919,6 +919,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       <div class="detail-row" id="dp-due-row"><span class="detail-lbl">Due</span><span class="detail-val" id="dp-due"></span></div>
       <div class="detail-row" id="dp-progress-row"><span class="detail-lbl">Progress</span><span class="detail-val" id="dp-progress"></span></div>
       <div class="detail-row" id="dp-created-row" style="display:none"><span class="detail-lbl">Created</span><span class="detail-val" id="dp-created"></span></div>
+      <div class="detail-row" id="dp-completed-row" style="display:none"><span class="detail-lbl">Completed</span><span class="detail-val" id="dp-completed" style="display:flex;align-items:center;gap:8px"><span id="dp-completed-lbl"></span><input type="date" id="dp-completed-input" style="border:none;border-bottom:1px solid var(--border-color);background:transparent;color:var(--text-dim);font-size:12px;font-weight:600;font-family:inherit;padding:1px 2px;cursor:pointer;width:130px" onchange="saveCompletedAt(this.value)"></span></div>
       <div class="detail-row" id="dp-time-row" style="display:none"><span class="detail-lbl">Time</span><span class="detail-val" id="dp-time"></span></div>
       <div class="detail-row" id="dp-blocks-row" style="display:none"><span class="detail-lbl">Blocks</span><span class="detail-val" id="dp-blocks"></span></div>
       <div class="detail-row" id="dp-blocked-by-row" style="display:none"><span class="detail-lbl">Blocked by</span><span class="detail-val" id="dp-blocked-by"></span></div>
@@ -957,7 +958,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.0.2';
+const APP_VERSION='1.0.4';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -2105,6 +2106,22 @@ function showTaskDetail(id){
   const repRow=document.getElementById('dp-repeat-row');
   if(repRow){if(t.repeat&&t.repeat!=='none'){document.getElementById('dp-repeat').innerText=t.repeat.charAt(0).toUpperCase()+t.repeat.slice(1);repRow.style.display='flex';}else{repRow.style.display='none';}}
 
+  // Completed date row — only shown for done tasks, editable
+  const completedRow=document.getElementById('dp-completed-row');
+  if(completedRow){
+    if(t.status==='done'){
+      const ts=t.completedAt||t.updatedAt;
+      const cd=ts?new Date(ts):null;
+      const lbl=document.getElementById('dp-completed-lbl');
+      const inp=document.getElementById('dp-completed-input');
+      if(lbl)lbl.innerText=cd?(cd.getDate()+' '+mo[cd.getMonth()]+' '+cd.getFullYear()):'Unknown';
+      if(inp)inp.value=cd?cd.toISOString().split('T')[0]:'';
+      completedRow.style.display='flex';
+    } else {
+      completedRow.style.display='none';
+    }
+  }
+
   const stepsWrap=document.getElementById('dp-steps');
   const stepsList=document.getElementById('dp-steps-list');
   if(steps.length){
@@ -2114,6 +2131,7 @@ function showTaskDetail(id){
       const dotCls=s.status==='completed'?'step-dot-done':s.status==='in-progress'?'step-dot-prog':'step-dot-none';
       const el=document.createElement('div');
       el.className='detail-step-item';
+      el.style.flexWrap='wrap';
       const dot=document.createElement('span');
       dot.className='detail-step-dot '+dotCls;
       const txt=document.createElement('span');
@@ -2125,6 +2143,24 @@ function showTaskDetail(id){
       if(s.notifTime){const nt=document.createElement('span');nt.style.cssText='font-size:10px;color:var(--purple);margin-left:4px';nt.innerHTML='&#128276; '+s.notifTime;meta.appendChild(nt);}
       el.appendChild(dot);el.appendChild(txt);el.appendChild(meta);
       el.addEventListener('click',function(){toggleDetailStep(t.id,s.id);});
+      // Completed date editor — only for completed steps
+      if(s.status==='completed'){
+        const ca=s.completedAt;
+        const caDate=ca?new Date(ca):null;
+        const caStr=caDate?caDate.toISOString().split('T')[0]:'';
+        const moN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const caLbl=caDate?(caDate.getDate()+' '+moN[caDate.getMonth()]+' '+caDate.getFullYear()):'Unknown';
+        const completedRow=document.createElement('div');
+        completedRow.style.cssText='width:100%;display:flex;align-items:center;gap:8px;padding:4px 0 2px 22px;font-size:11px;color:var(--text-muted);font-weight:600';
+        completedRow.innerHTML='<span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted);width:70px;flex-shrink:0">Completed</span>'
+          +'<span style="margin-right:6px">'+caLbl+'</span>'
+          +'<input type="date" value="'+caStr+'" data-step-id="'+s.id+'" data-task-id="'+t.id+'" style="border:none;border-bottom:1px solid var(--border-color);background:transparent;color:var(--text-dim);font-size:11px;font-weight:600;font-family:inherit;padding:1px 2px;cursor:pointer" onclick="event.stopPropagation()">';
+        completedRow.querySelector('input').addEventListener('change',function(e){
+          e.stopPropagation();
+          saveStepCompletedAt(this.dataset.taskId,this.dataset.stepId,this.value,completedRow.querySelector('span:nth-child(2)'));
+        });
+        el.appendChild(completedRow);
+      }
       stepsList.appendChild(el);
     });
   } else { stepsWrap.style.display='none'; }
@@ -2370,6 +2406,52 @@ function toggleDetailStep(taskId, stepId){
 function closeDetail(){document.getElementById('detail-overlay').classList.remove('open');detailTaskId=null}
 function closeDetailBg(e){if(e.target.id==='detail-overlay')closeDetail()}
 function editFromDetail(){const id=detailTaskId;closeDetail();editTask(id)}
+
+function saveStepCompletedAt(taskId,stepId,dateStr,lblEl){
+  const t=tasks.find(x=>x.id===taskId);if(!t)return;
+  const s=(t.steps||[]).find(x=>x.id===stepId);if(!s||s.status!=='completed')return;
+  if(!dateStr){showToast('Invalid date');return;}
+  const parts=dateStr.split('-');
+  const newDate=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  if(isNaN(newDate.getTime())){showToast('Invalid date');return;}
+  // Preserve original time-of-day
+  let hours=12,minutes=0;
+  if(s.completedAt){const ed=new Date(s.completedAt);hours=ed.getHours();minutes=ed.getMinutes();}
+  newDate.setHours(hours,minutes,0,0);
+  s.completedAt=newDate.getTime();
+  t.updatedAt=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
+  fbSave(t);
+  // Update label immediately
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if(lblEl)lblEl.textContent=newDate.getDate()+' '+mo[newDate.getMonth()]+' '+newDate.getFullYear();
+  updateDailyRing();
+  showToast('Step completion date updated');
+}
+
+function saveCompletedAt(dateStr){
+  const t=tasks.find(x=>x.id===detailTaskId);if(!t||t.status!=='done')return;
+  if(!dateStr){showToast('Invalid date');return;}
+  // Parse the date as local midnight, preserve the original time-of-day if available
+  const parts=dateStr.split('-');
+  const newDate=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  if(isNaN(newDate.getTime())){showToast('Invalid date');return;}
+  // Keep original time component if completedAt exists, else use noon
+  let hours=12,minutes=0;
+  const existing=t.completedAt||t.updatedAt;
+  if(existing){const ed=new Date(existing);hours=ed.getHours();minutes=ed.getMinutes();}
+  newDate.setHours(hours,minutes,0,0);
+  t.completedAt=newDate.getTime();
+  t.updatedAt=newDate.getTime();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
+  fbSave(t);
+  // Update the label in the detail panel immediately
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const lbl=document.getElementById('dp-completed-lbl');
+  if(lbl)lbl.innerText=newDate.getDate()+' '+mo[newDate.getMonth()]+' '+newDate.getFullYear();
+  updateDailyRing();
+  showToast('Completion date updated');
+}
 function deleteFromDetail(){const id=detailTaskId;closeDetail();deleteTask(id);}
 function onMatrixChange(sel){
   scheduleRender();
