@@ -958,7 +958,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.0.4';
+const APP_VERSION='1.0.6';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -3313,13 +3313,13 @@ document.addEventListener('visibilitychange',function(){
   }
 });
 
-// ── Pull to refresh ───────────────────────────────────────────────────
-// Attaches to ALL .content panels so it works on every view in the PWA
+
+// ── Pull to refresh — triggers full page reload ───────────────────────
 (function(){
   const indicator=document.createElement('div');
   indicator.id='ptr-indicator';
   indicator.style.cssText='position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-48px);background:var(--bg-card);border:1px solid var(--border-color);border-radius:0 0 20px 20px;padding:6px 20px;font-size:12px;font-weight:700;color:var(--text-muted);z-index:9999;transition:transform 0.2s;white-space:nowrap;pointer-events:none';
-  indicator.innerText='Pull to refresh';
+  indicator.innerText='Pull to reload';
   document.body.appendChild(indicator);
   let startY=0,pulling=false,activeContent=null;
   function attachPTR(content){
@@ -3334,7 +3334,7 @@ document.addEventListener('visibilitychange',function(){
         pulling=true;
         const prog=Math.min(dy,80);
         indicator.style.transform='translateX(-50%) translateY('+(prog-48)+'px)';
-        indicator.innerText=dy>60?'Release to refresh':'Pull to refresh';
+        indicator.innerText=dy>60?'Release to reload':'Pull to reload';
       }
     },{passive:true});
     content.addEventListener('touchend',e=>{
@@ -3342,12 +3342,9 @@ document.addEventListener('visibilitychange',function(){
       const dy=e.changedTouches[0].clientY-startY;
       indicator.style.transform='translateX(-50%) translateY(-48px)';
       if(dy>60){
-        indicator.innerText='Syncing…';
+        indicator.innerText='Reloading…';
         indicator.style.transform='translateX(-50%) translateY(4px)';
-        forceSyncWithCallback(function(){
-          indicator.style.transform='translateX(-50%) translateY(-48px)';
-          indicator.innerText='Pull to refresh';
-        });
+        setTimeout(hardReload,300);
       }
       pulling=false;startY=0;activeContent=null;
     },{passive:true});
