@@ -958,7 +958,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.0.6';
+const APP_VERSION='1.0.8';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1919,32 +1919,27 @@ function render(){
     const pBg={high:'#fff0f0',medium:'#fff8f0',low:'#ebf4ff'};
     const pCol={high:'var(--p-high)',medium:'var(--p-med)',low:'var(--p-low)'};
 
+    function nextDueStep(t){
+      if(t.status==='done'||(t.steps||[]).length===0) return null;
+      const inc=(t.steps||[]).filter(s=>s.status!=='completed'&&s.dueDate&&s.dueDate.trim());
+      if(!inc.length) return null;
+      inc.sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+      return inc[0].text;
+    }
+
     function rowHTML(t){
       const steps=t.steps||[];
       const doneS=steps.filter(s=>s.status==='completed').length;
       const prog=t.status==='done'?100:steps.length?Math.round(doneS/steps.length*100):(t.manualProgress||0);
       const isDone=t.status==='done';
-      const diff=t.dueDate&&!isDone?Math.ceil((new Date(t.dueDate)-new Date())/86400000):null;
-      let dueHtml='';
-      if(diff!==null){
-        const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const[,mm,dd]=t.dueDate.split('-');
-        const lbl=diff<0?'Overdue':diff===0?'Today':parseInt(dd)+' '+mo[parseInt(mm)-1];
-        const cls=diff<0?'due-chip overdue':diff<=3?'due-chip soon':'due-chip normal';
-        dueHtml='<span class="tr-chip '+cls+'" style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">'+lbl+'</span>';
-      }
       const stepsHtml=uiSettings.showSteps&&steps.length?'<span style="font-size:9px;font-weight:700;color:var(--purple)">'+doneS+'/'+steps.length+'</span>':'';
-      return '<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+
-        '" data-id="'+t.id+'">'+'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'+'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'
-        +'<button class="tr-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></button>'
-        +(function(){const bl=tasks.filter(x=>x.blocking===t.id&&x.status!=='done');const cls='"tr-name'+(isDone?' done':'')+'"';const inner=t.name+(bl.length?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle;opacity:1">BLOCKED</span>':'');const style=bl.length?'opacity:0.55;':'';return'<span class='+cls+' onclick="showTaskDetail(\''+t.id+'\')" style="'+style+'">'+inner+'</span>';}())
-        +'<div class="tr-right">'
-        +'<span class="tr-chip" style="background:'+pBg[t.priority]+';color:'+pCol[t.priority]+'">'+t.priority+'</span>'
-        +dueHtml+stepsHtml
-        +'<div class="tr-prog"><div class="tr-prog-fill" style="width:'+prog+'%"></div></div>'
-        +'<button class="focus-trigger" onclick="event.stopPropagation();openFocusMode(this)" data-focus="'+t.id+'">&#127919;</button>'
-        +'<button class="tr-del" onclick="deleteTask(\''+t.id+'\')">&#215;</button>'
-        +'</div></div>';
+      const nds=nextDueStep(t);
+      const suffix=nds?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+nds+')</span>':'';
+      const bl=tasks.filter(x=>x.blocking===t.id&&x.status!=='done');
+      const blockedBadge=bl.length?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle;opacity:1">BLOCKED</span>':'';
+      const nameStyle=bl.length?'opacity:0.55;':'';
+      const out='<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+' " data-id="'+t.id+'">'+'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'+'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'+'<button class="tr-check'+(isDone?' checked':'')+' " data-check="'+t.id+'"></button>'+'<span class="tr-name'+(isDone?' done':'')+' " data-detail="'+t.id+'" style="'+nameStyle+'">'+t.name+suffix+blockedBadge+'</span>'+'<div class="tr-right">'+stepsHtml+'<div class="tr-prog"><div class="tr-prog-fill" style="width:'+prog+'%"></div></div>'+'<button class="focus-trigger" data-focus="'+t.id+'">&#127919;</button>'+'<button class="tr-del" data-del="'+t.id+'">&#215;</button>'+'</div></div>';
+      return out;
     }
 
     function cardHTML(t){
@@ -1960,12 +1955,13 @@ function render(){
         ?'<div class="progress-container"><div class="progress-bar-wrapper"><div class="progress-header"><span>Completion</span><span>'+Math.round(prog)+'%</span></div><div class="progress-wrap"><div class="progress-bar" style="width:'+prog+'%"></div></div></div>'+(uiSettings.showEmojis?'<div class="status-emojis">'+pEmoji+' '+sEmoji+'</div>':'')+'</div>':'';
       const manualSlider=!steps.length&&!isDone&&uiSettings.showProgress
         ?'<div class="manual-progress-wrap"><div class="manual-progress-label"><span>Completion</span><span id="mpp-'+t.id+'">'+Math.round(prog)+'%</span></div><input class="manual-slider" type="range" min="0" max="100" step="5" value="'+Math.round(prog)+'" oninput="updateManualProgress(\''+t.id+'\',this.value)"><div class="progress-wrap" style="margin-top:6px"><div class="progress-bar" id="mpb-'+t.id+'" style="width:'+prog+'%"></div></div></div>':'';
-      const meta='<span class="badge-priority '+t.priority+'">'+t.priority+'</span>'
+      const ndsCard=nextDueStep(t);
+      const meta=''
         +(uiSettings.showMatrix?'<span class="matrix-badge q'+mVal+'">'+mLabel+'</span>':'')
-        +(uiSettings.showDates?dueDateChip(t.dueDate,isDone):'')
         +(uiSettings.showSteps&&steps.length?'<span style="color:var(--purple)">'+doneS+'/'+steps.length+' steps</span>':'');
       const isBlocked=(function(){return tasks.filter(function(x){return x.blocking===t.id&&x.status!=='done';}).length>0;}());
-      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+'" style="'+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+t.name+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'')+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
+      const cardTitle=t.name+(ndsCard?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+ndsCard+')</span>':'')+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'');
+      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+'" style="'+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
     }
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;
@@ -2705,6 +2701,21 @@ function attachSwipe(el,id){
 
 function attachAllSwipes(){
   document.querySelectorAll('.task-row[data-id]').forEach(el=>attachSwipe(el,el.dataset.id));
+  // Event delegation for row buttons (avoids inline handler quoting issues)
+  const list=document.getElementById('task-list');
+  if(list&&!list._delegated){
+    list._delegated=true;
+    list.addEventListener('click',function(e){
+      const check=e.target.closest('[data-check]');
+      if(check){e.stopPropagation();toggleDone(check.dataset.check,e);return;}
+      const detail=e.target.closest('[data-detail]');
+      if(detail){e.stopPropagation();showTaskDetail(detail.dataset.detail);return;}
+      const del=e.target.closest('button[data-del]');
+      if(del){e.stopPropagation();deleteTask(del.dataset.del);return;}
+      const focus=e.target.closest('[data-focus]');
+      if(focus){e.stopPropagation();openFocusMode(focus);return;}
+    });
+  }
 }
 
 
