@@ -394,6 +394,23 @@ input:checked+.slider:before{transform:translateX(16px)}
 .history-task-meta{font-size:11px;color:var(--text-muted);margin-top:3px}
 .history-step-item{display:flex;align-items:center;gap:8px;padding:5px 0 5px 12px;font-size:12px;color:var(--text-dim);font-weight:600;border-left:2px solid var(--border-color);margin:4px 0 4px 6px}
 .history-step-item::before{content:'↳';color:var(--text-muted);font-size:10px}
+.hist-group{margin-bottom:20px}
+.hist-group-header{display:flex;align-items:center;justify-content:space-between;padding:10px 0 8px;cursor:pointer;user-select:none;border-bottom:2px solid var(--border-color)}
+.hist-group-label{font-size:13px;font-weight:800;color:var(--text-main)}
+.hist-group-meta{display:flex;align-items:center;gap:8px}
+.hist-group-count{font-size:10px;font-weight:700;color:var(--purple);background:var(--purple-light);padding:2px 8px;border-radius:10px}
+.hist-group-chev{font-size:11px;color:var(--text-muted);transition:transform 0.2s}
+.hist-group-chev.collapsed{transform:rotate(-90deg)}
+.hist-group-body{padding-top:4px}
+.hist-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:16px}
+.hist-cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;position:relative;color:var(--text-muted);transition:background 0.15s}
+.hist-cal-cell:hover{background:var(--bg-surface)}
+.hist-cal-cell.has-completions{color:var(--text-main)}
+.hist-cal-cell.selected{background:var(--grad);color:#fff}
+.hist-cal-cell.today-hist{box-shadow:0 0 0 2px var(--green)}
+.hist-cal-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--green)}
+.hist-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.hist-cal-title{font-size:13px;font-weight:800;color:var(--text-main)}
 .fab-add{position:fixed;bottom:28px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--grad);border:none;color:#fff;font-size:28px;line-height:1;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.22);z-index:4000;display:flex;align-items:center;justify-content:center;transition:transform 0.2s,box-shadow 0.2s;font-family:inherit}
 .fab-add:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(0,0,0,0.28)}
 .fab-add:active{transform:scale(0.95)}
@@ -649,6 +666,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
         </div>
       </div>
 
+      <div id="weekly-summary" style="margin-bottom:12px;font-size:12px;font-weight:700;color:var(--text-muted);padding:6px 2px;display:flex;align-items:center;justify-content:space-between"></div>
       <div id="task-list"></div>
 
       <div class="analytics-section">
@@ -797,6 +815,23 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
         <button class="mode-tab active" id="hist-tab-all" onclick="setHistoryTab('all')">All</button>
         <button class="mode-tab" id="hist-tab-work" onclick="setHistoryTab('work')">Work</button>
         <button class="mode-tab" id="hist-tab-personal" onclick="setHistoryTab('personal')">Personal</button>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:14px;margin-bottom:16px">
+        <div class="hist-cal-nav">
+          <button class="cal-nav-btn" onclick="changeHistMonth(-1)">←</button>
+          <div class="hist-cal-title" id="hist-cal-title">Month Year</div>
+          <button class="cal-nav-btn" onclick="changeHistMonth(1)">→</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">S</div>
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">M</div>
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">T</div>
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">W</div>
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">T</div>
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">F</div>
+          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">S</div>
+        </div>
+        <div class="hist-cal-grid" id="hist-cal-grid"></div>
       </div>
       <div id="history-list"></div>
     </div>
@@ -958,7 +993,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.0.8';
+const APP_VERSION='1.1.0';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1877,11 +1912,42 @@ function render(){
   const sortFn=(a,b)=>{
     if(a.status==='done'&&b.status!=='done')return 1;
     if(b.status==='done'&&a.status!=='done')return-1;
+    // Pinned tasks always float to top within their status group
+    if(a.pinned&&!b.pinned)return-1;
+    if(b.pinned&&!a.pinned)return 1;
     if(sortMode==='due'){if(!a.dueDate)return 1;if(!b.dueDate)return-1;return new Date(a.dueDate)-new Date(b.dueDate)}
     if(sortMode==='priority'){const pw={high:3,medium:2,low:1};return pw[b.priority]-pw[a.priority]}
     return(b.updatedAt||0)-(a.updatedAt||0);
   };
   filtered.sort(sortFn);
+
+  // ── Weekly summary strip ─────────────────────────────────────────────
+  (function(){
+    const el=document.getElementById('weekly-summary');
+    if(!el)return;
+    const now=new Date();
+    const day=now.getDay();
+    const monday=new Date(now);
+    monday.setDate(now.getDate()-(day===0?6:day-1));
+    monday.setHours(0,0,0,0);
+    const weekDone=tasks.filter(function(t){
+      if(t.status!=='done')return false;
+      const ts=t.completedAt||t.updatedAt;
+      return ts&&new Date(ts)>=monday;
+    }).length;
+    const today=new Date();today.setHours(0,0,0,0);
+    const todayDone=tasks.filter(function(t){
+      if(t.status!=='done')return false;
+      const ts=t.completedAt||t.updatedAt;
+      if(!ts)return false;
+      const d=new Date(ts);d.setHours(0,0,0,0);
+      return d.getTime()===today.getTime();
+    }).length;
+    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const todayName=days[now.getDay()];
+    el.innerHTML='<span>&#128197; This week: <strong style="color:var(--green)">'+weekDone+'</strong> completed</span>'
+      +'<span style="color:var(--text-muted)">'+todayName+': <strong style="color:var(--text-dim)">'+todayDone+'</strong> done</span>';
+  })();
 
   const E=id=>document.getElementById(id);
   const cntAll=document.getElementById('cnt-all'),cntW=document.getElementById('cnt-work'),cntP=document.getElementById('cnt-personal');
@@ -1933,12 +1999,33 @@ function render(){
       const prog=t.status==='done'?100:steps.length?Math.round(doneS/steps.length*100):(t.manualProgress||0);
       const isDone=t.status==='done';
       const stepsHtml=uiSettings.showSteps&&steps.length?'<span style="font-size:9px;font-weight:700;color:var(--purple)">'+doneS+'/'+steps.length+'</span>':'';
+      let dateLbl='';
+      if(t.dueDate&&!isDone){
+        const mo2=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const[,mm2,dd2]=t.dueDate.split('-');
+        const diff2=Math.ceil((parseLocalDate(t.dueDate)-new Date())/86400000);
+        const dtxt=diff2<0?'Overdue':diff2===0?'Today':parseInt(dd2)+' '+mo2[parseInt(mm2)-1];
+        const dcol=diff2<0?'var(--red)':diff2===0?'var(--p-med)':'var(--text-muted)';
+        dateLbl='<span style="font-size:10px;font-weight:700;color:'+dcol+';flex-shrink:0">'+dtxt+'</span>';
+      }
       const nds=nextDueStep(t);
-      const suffix=nds?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+nds+')</span>':'';
+      const ndsTrunc=nds&&nds.length>22?nds.substring(0,20)+'…':nds;
+      const suffix=ndsTrunc?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+ndsTrunc+')</span>':'';
       const bl=tasks.filter(x=>x.blocking===t.id&&x.status!=='done');
       const blockedBadge=bl.length?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle;opacity:1">BLOCKED</span>':'';
       const nameStyle=bl.length?'opacity:0.55;':'';
-      const out='<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+' " data-id="'+t.id+'">'+'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'+'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'+'<button class="tr-check'+(isDone?' checked':'')+' " data-check="'+t.id+'"></button>'+'<span class="tr-name'+(isDone?' done':'')+' " data-detail="'+t.id+'" style="'+nameStyle+'">'+t.name+suffix+blockedBadge+'</span>'+'<div class="tr-right">'+stepsHtml+'<div class="tr-prog"><div class="tr-prog-fill" style="width:'+prog+'%"></div></div>'+'<button class="focus-trigger" data-focus="'+t.id+'">&#127919;</button>'+'<button class="tr-del" data-del="'+t.id+'">&#215;</button>'+'</div></div>';
+      const pinBtn='<button class="tr-pin" data-pin="'+t.id+'" title="'+(t.pinned?'Unpin':'Pin to top')+'" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:'+(t.pinned?'1':'0.3')+';flex-shrink:0;padding:0 2px">&#128204;</button>';
+      const out='<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+(t.pinned?' pinned':'')+' " data-id="'+t.id+'">'
+        +'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'
+        +'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'
+        +'<button class="tr-check'+(isDone?' checked':'')+' " data-check="'+t.id+'"></button>'
+        +'<span class="tr-name'+(isDone?' done':'')+' " data-detail="'+t.id+'" style="'+nameStyle+'">'+t.name+suffix+blockedBadge+'</span>'
+        +'<div class="tr-right">'+dateLbl+stepsHtml
+        +'<div class="tr-prog"><div class="tr-prog-fill" style="width:'+prog+'%"></div></div>'
+        +pinBtn
+        +'<button class="focus-trigger" data-focus="'+t.id+'">&#127919;</button>'
+        +'<button class="tr-del" data-del="'+t.id+'">&#215;</button>'
+        +'</div></div>';
       return out;
     }
 
@@ -2638,6 +2725,14 @@ function setDashboardView(v){
 
 function setSortMode(m){sortMode=m;localStorage.setItem('donezo_sort',m);if(fbRef)fbRef.parent.child('meta/sort').set(m).catch(()=>{});render();}
 
+function togglePin(id){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  t.pinned=!t.pinned;t.updatedAt=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
+  fbSave(t);render();
+  showToast(t.pinned?'Pinned to top':'Unpinned');
+}
+
 function setView(v){
   currentView=v;
   document.getElementById('view-dashboard').style.display=v==='dashboard'?'block':'none';
@@ -2712,6 +2807,8 @@ function attachAllSwipes(){
       if(detail){e.stopPropagation();showTaskDetail(detail.dataset.detail);return;}
       const del=e.target.closest('button[data-del]');
       if(del){e.stopPropagation();deleteTask(del.dataset.del);return;}
+      const pin=e.target.closest('[data-pin]');
+      if(pin){e.stopPropagation();togglePin(pin.dataset.pin);return;}
       const focus=e.target.closest('[data-focus]');
       if(focus){e.stopPropagation();openFocusMode(focus);return;}
     });
@@ -3124,7 +3221,7 @@ function scheduleNotifLoop(){
 }
 
 
-let _historyTab='all';
+let _historyTab='all',_histCalDate=new Date(),_histSelectedWeek=null,_histGroupCollapsed={};
 function setHistoryTab(tab){
   _historyTab=tab;
   ['all','work','personal'].forEach(function(t){
@@ -3134,6 +3231,43 @@ function setHistoryTab(tab){
   renderHistory();
 }
 
+function renderHistCalendar(buckets){
+  const c=document.getElementById('hist-cal-grid');if(!c)return;c.innerHTML='';
+  const yr=_histCalDate.getFullYear(),mo=_histCalDate.getMonth();
+  const names=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  document.getElementById('hist-cal-title').innerText=names[mo]+' '+yr;
+  const firstDay=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate();
+  const todayStr=new Date().toISOString().split('T')[0];
+  for(let i=0;i<firstDay;i++){const e=document.createElement('div');e.className='hist-cal-cell';e.style.opacity='0';e.style.pointerEvents='none';c.appendChild(e);}
+  for(let day=1;day<=dim;day++){
+    const ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const count=(buckets[ds]||[]).length;
+    const el=document.createElement('div');
+    el.className='hist-cal-cell'+(count?' has-completions':'')+(ds===todayStr?' today-hist':'');
+    // highlight whole week if selected
+    if(_histSelectedWeek){
+      const d=new Date(ds+'T12:00:00');
+      const wStart=new Date(_histSelectedWeek);
+      const wEnd=new Date(wStart);wEnd.setDate(wStart.getDate()+6);
+      if(d>=wStart&&d<=wEnd)el.classList.add('selected');
+    }
+    el.textContent=day;
+    if(count){const dot=document.createElement('div');dot.className='hist-cal-dot';el.appendChild(dot);}
+    el.addEventListener('click',function(){
+      // Select the week containing this day (Mon–Sun)
+      const clicked=new Date(ds+'T12:00:00');
+      const dow=clicked.getDay();
+      const mon=new Date(clicked);mon.setDate(clicked.getDate()-(dow===0?6:dow-1));mon.setHours(0,0,0,0);
+      const monStr=mon.toISOString().split('T')[0];
+      _histSelectedWeek=(_histSelectedWeek===monStr)?null:monStr;
+      renderHistory();
+    });
+    c.appendChild(el);
+  }
+}
+
+function changeHistMonth(offset){_histCalDate.setMonth(_histCalDate.getMonth()+offset);renderHistory();}
+
 function renderHistory(){
   const list=document.getElementById('history-list');
   if(!list)return;
@@ -3142,80 +3276,129 @@ function renderHistory(){
 
   // Build day buckets
   const buckets={};
+  function addToBucket(key,item){if(!buckets[key])buckets[key]=[];buckets[key].push(item);}
 
-  // Completed tasks — use updatedAt
   tasks.filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
-    const d=new Date(t.completedAt||t.updatedAt);
-    const key=d.toISOString().split('T')[0];
-    if(!buckets[key])buckets[key]=[];
-    buckets[key].push({type:'task',task:t,completedAt:t.completedAt||t.updatedAt});
+    const key=new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0];
+    addToBucket(key,{type:'task',task:t,completedAt:t.completedAt||t.updatedAt});
   });
-
-  // Also check archive for tasks completed before archiving
-  loadArch().filter(t=>(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
-    const d=new Date(t.completedAt||t.updatedAt);
-    const key=d.toISOString().split('T')[0];
-    if(!buckets[key])buckets[key]=[];
-    // Only add if status was done
-    if(t.status==='done') buckets[key].push({type:'task',task:t,completedAt:t.updatedAt,archived:true});
+  loadArch().filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
+    const key=new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0];
+    addToBucket(key,{type:'task',task:t,completedAt:t.completedAt||t.updatedAt,archived:true});
   });
-
-  // Completed steps — use completedAt timestamp
   tasks.filter(t=>_historyTab==='all'||t.category===_historyTab).forEach(t=>{
     (t.steps||[]).filter(s=>s.status==='completed'&&s.completedAt).forEach(s=>{
-      const d=new Date(s.completedAt);
-      const key=d.toISOString().split('T')[0];
-      if(!buckets[key])buckets[key]=[];
-      buckets[key].push({type:'step',step:s,task:t,completedAt:s.completedAt});
+      const key=new Date(s.completedAt).toISOString().split('T')[0];
+      addToBucket(key,{type:'step',step:s,task:t,completedAt:s.completedAt});
     });
   });
 
-  const sortedDays=Object.keys(buckets).sort((a,b)=>b.localeCompare(a));
+  // Render calendar
+  renderHistCalendar(buckets);
 
+  const sortedDays=Object.keys(buckets).sort((a,b)=>b.localeCompare(a));
   if(!sortedDays.length){
     list.innerHTML='<div class="empty-state"><div class="empty-state-title" style="font-size:15px;font-weight:700;color:var(--text-dim);margin-bottom:6px">No completed tasks yet</div><div class="empty-state-sub" style="font-size:13px">Completed tasks and steps will appear here</div></div>';
     return;
   }
 
-  const today=new Date();today.setHours(0,0,0,0);
-  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);
+  const now=new Date();now.setHours(0,0,0,0);
+  const yesterday=new Date(now);yesterday.setDate(now.getDate()-1);
+  const weekAgo=new Date(now);weekAgo.setDate(now.getDate()-7);
+  const twoWeeksAgo=new Date(now);twoWeeksAgo.setDate(now.getDate()-14);
+  const monthAgo=new Date(now);monthAgo.setDate(now.getDate()-30);
 
-  list.innerHTML=sortedDays.map(function(key){
-    const items=buckets[key];
-    const d=new Date(key+'T12:00:00');
-    let label='';
-    if(d.toDateString()===today.toDateString()) label='Today';
-    else if(d.toDateString()===yesterday.toDateString()) label='Yesterday';
-    else label=days[d.getDay()]+', '+d.getDate()+' '+mo[d.getMonth()]+' '+d.getFullYear();
+  function getDayGroup(ds){
+    const d=new Date(ds+'T12:00:00');
+    if(d.toDateString()===now.toDateString()) return 'Today';
+    if(d.toDateString()===yesterday.toDateString()) return 'Yesterday';
+    if(d>=weekAgo) return 'This Week';
+    if(d>=twoWeeksAgo) return 'Last Week';
+    if(d>=monthAgo) return 'This Month';
+    return 'Older';
+  }
+  const groupOrder=['Today','Yesterday','This Week','Last Week','This Month','Older'];
 
-    const taskItems=items.filter(i=>i.type==='task');
-    const stepItems=items.filter(i=>i.type==='step');
-    const total=taskItems.length+stepItems.length;
+  // If a week is selected in the calendar, filter to that week only
+  let filteredDays=sortedDays;
+  if(_histSelectedWeek){
+    const wStart=new Date(_histSelectedWeek);wStart.setHours(0,0,0,0);
+    const wEnd=new Date(wStart);wEnd.setDate(wStart.getDate()+6);wEnd.setHours(23,59,59,999);
+    filteredDays=sortedDays.filter(function(ds){const d=new Date(ds+'T12:00:00');return d>=wStart&&d<=wEnd;});
+  }
 
-    const inner=items.sort((a,b)=>b.completedAt-a.completedAt).map(function(item){
-      if(item.type==='task'){
-        const t=item.task;
-        const time=new Date(item.completedAt);
-        const hhmm=time.getHours().toString().padStart(2,'0')+':'+time.getMinutes().toString().padStart(2,'0');
-        return '<div class="history-task-item" data-hist-task="'+t.id+'">'
-          +'<div class="history-task-name">&#9989; '+t.name+(item.archived?'<span style="font-size:9px;color:var(--text-muted);font-weight:700;background:var(--bg-surface);padding:1px 5px;border-radius:4px">archived</span>':'')+'</div>'
-          +'<div class="history-task-meta">'+t.category+' &bull; '+t.priority+' priority &bull; '+hhmm+'</div>'
-          +'</div>';
-      } else {
-        const s=item.step;const t=item.task;
-        const time=new Date(item.completedAt);
-        const hhmm=time.getHours().toString().padStart(2,'0')+':'+time.getMinutes().toString().padStart(2,'0');
-        return '<div class="history-step-item" data-hist-task="'+t.id+'" style="cursor:pointer">'+s.text+' <span style="color:var(--text-muted);font-size:10px">('+t.name+') &bull; '+hhmm+'</span></div>';
-      }
-    }).join('');
+  // Group days
+  const groups={};
+  filteredDays.forEach(function(ds){
+    const g=_histSelectedWeek?'Selected Week':getDayGroup(ds);
+    if(!groups[g])groups[g]=[];
+    groups[g].push(ds);
+  });
 
-    return '<div class="history-day">'
-      +'<div class="history-day-header"><span>'+label+'</span><span class="history-day-count">'+total+' completed</span></div>'
-      +inner
-      +'</div>';
-  }).join('');
+  const effectiveOrder=_histSelectedWeek?['Selected Week']:groupOrder;
 
-  // Wire clicks to open task detail
+  function renderItem(item){
+    const t=item.task;
+    const time=new Date(item.completedAt);
+    const hhmm=time.getHours().toString().padStart(2,'0')+':'+time.getMinutes().toString().padStart(2,'0');
+    if(item.type==='task'){
+      return '<div class="history-task-item" data-hist-task="'+t.id+'">'
+        +'<div class="history-task-name">&#9989; '+t.name+(item.archived?'<span style="font-size:9px;color:var(--text-muted);font-weight:700;background:var(--bg-surface);padding:1px 5px;border-radius:4px;margin-left:4px">archived</span>':'')+'</div>'
+        +'<div class="history-task-meta">'+t.category+' &bull; '+t.priority+' &bull; '+hhmm+'</div>'
+        +'</div>';
+    } else {
+      const s=item.step;
+      return '<div class="history-step-item" data-hist-task="'+t.id+'" style="cursor:pointer">'+s.text+' <span style="color:var(--text-muted);font-size:10px">('+t.name+') &bull; '+hhmm+'</span></div>';
+    }
+  }
+
+  let html='';
+  effectiveOrder.forEach(function(groupName){
+    if(!groups[groupName]||!groups[groupName].length) return;
+    const gDays=groups[groupName];
+    const gKey='hist-g-'+groupName.replace(/\s+/g,'-');
+    const collapsed=_histGroupCollapsed[gKey]===true;
+    const totalItems=gDays.reduce(function(sum,ds){return sum+(buckets[ds]||[]).length;},0);
+
+    html+='<div class="hist-group" id="'+gKey+'">';
+    html+='<div class="hist-group-header" data-grp="'+gKey+'">'
+      +'<span class="hist-group-label">'+groupName+'</span>'
+      +'<span class="hist-group-meta">'
+      +'<span class="hist-group-count">'+totalItems+'</span>'
+      +'<span class="hist-group-chev'+(collapsed?' collapsed':'')+'">&#9660;</span>'
+      +'</span></div>';
+    html+='<div class="hist-group-body" style="'+(collapsed?'display:none':'')+'">'; 
+
+    gDays.forEach(function(ds){
+      const items=buckets[ds]||[];
+      const d=new Date(ds+'T12:00:00');
+      let dayLabel='';
+      if(d.toDateString()===now.toDateString()) dayLabel='Today';
+      else if(d.toDateString()===yesterday.toDateString()) dayLabel='Yesterday';
+      else dayLabel=days[d.getDay()]+', '+d.getDate()+' '+mo[d.getMonth()]+' '+d.getFullYear();
+      const dayTotal=items.length;
+      html+='<div class="history-day">';
+      html+='<div class="history-day-header"><span>'+dayLabel+'</span><span class="history-day-count">'+dayTotal+' completed</span></div>';
+      html+=items.sort((a,b)=>b.completedAt-a.completedAt).map(renderItem).join('');
+      html+='</div>';
+    });
+
+    html+='</div></div>';
+  });
+
+  if(!html) html='<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No completions in selected period</div>';
+  list.innerHTML=html;
+
+  // Collapse toggles
+  list.querySelectorAll('[data-grp]').forEach(function(header){
+    header.addEventListener('click',function(){
+      const gKey=header.dataset.grp;
+      _histGroupCollapsed[gKey]=!_histGroupCollapsed[gKey];
+      renderHistory();
+    });
+  });
+
+  // Task/step clicks
   list.querySelectorAll('[data-hist-task]').forEach(function(el){
     el.addEventListener('click',function(){
       const id=el.dataset.histTask;
