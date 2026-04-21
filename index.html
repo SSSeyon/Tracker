@@ -295,6 +295,10 @@ body.theme-personal .nav-item.active{background:#e8f5ee;color:var(--green)}
 .time-block-dur{font-size:10px;font-weight:700;color:var(--purple)}
 .focus-start-slot{font-size:11px;color:var(--text-muted);margin-bottom:8px}
 .date-quick-btns{display:flex;gap:4px;flex-wrap:nowrap;margin-top:6px;overflow-x:auto}
+.autocomplete-item{padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-main);cursor:pointer;border-bottom:1px solid var(--border-color);transition:background 0.12s}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item:hover,.autocomplete-item.active{background:var(--bg-surface)}
+.autocomplete-item-sub{font-size:10px;color:var(--text-muted);font-weight:500;margin-top:1px}
 .date-qbtn{padding:5px 8px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-dim);font-family:inherit;font-size:10.5px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
 .date-qbtn:hover,.date-qbtn.active{background:var(--grad);color:#fff;border-color:transparent}
 .detail-footer{display:flex;gap:10px;padding:16px 22px 0}
@@ -811,30 +815,23 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
     </div>
     <div class="content" id="view-history" style="display:none">
       <h1 class="page-title">History</h1>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="margin-bottom:12px">
         <div style="display:flex;gap:4px;background:var(--bg-sidebar);border:1px solid var(--border-color);border-radius:12px;padding:4px;width:fit-content">
           <button class="mode-tab active" id="hist-tab-all" onclick="setHistoryTab('all')">All</button>
           <button class="mode-tab" id="hist-tab-work" onclick="setHistoryTab('work')">Work</button>
           <button class="mode-tab" id="hist-tab-personal" onclick="setHistoryTab('personal')">Personal</button>
         </div>
-        <button onclick="toggleAllHistGroups()" id="hist-collapse-all-btn" style="font-size:11px;font-weight:700;color:var(--text-muted);background:none;border:1px solid var(--border-color);border-radius:8px;padding:5px 10px;cursor:pointer;font-family:inherit">Collapse all</button>
       </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:14px;margin-bottom:16px">
-        <div class="hist-cal-nav">
+      <div class="chart-box" style="margin-bottom:16px">
+        <div class="calendar-nav">
           <button class="cal-nav-btn" onclick="changeHistMonth(-1)">←</button>
-          <div class="hist-cal-title" id="hist-cal-title">Month Year</div>
+          <div class="calendar-title" id="hist-cal-title">Month Year</div>
           <button class="cal-nav-btn" onclick="changeHistMonth(1)">→</button>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">S</div>
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">M</div>
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">T</div>
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">W</div>
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">T</div>
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">F</div>
-          <div style="font-size:9px;font-weight:800;text-align:center;color:var(--text-muted)">S</div>
-        </div>
-        <div class="hist-cal-grid" id="hist-cal-grid"></div>
+        <div class="calendar-grid" id="hist-cal-grid"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button onclick="toggleAllHistGroups()" id="hist-collapse-all-btn" style="font-size:11px;font-weight:700;color:var(--text-muted);background:none;border:1px solid var(--border-color);border-radius:8px;padding:5px 10px;cursor:pointer;font-family:inherit">Collapse all</button>
       </div>
       <div id="history-list"></div>
     </div>
@@ -874,8 +871,9 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
     <div class="mf">
       <label class="ml">Task Title</label>
       <div style="display:flex;gap:8px">
-        <input class="mi" id="f-name" type="text" placeholder="e.g. Plan marketing campaign…">
+        <input class="mi" id="f-name" type="text" placeholder="e.g. Plan marketing campaign…" autocomplete="off">
       </div>
+      <div id="task-autocomplete" style="display:none;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-card);box-shadow:0 4px 16px rgba(0,0,0,0.1);overflow:hidden;margin-top:4px;max-height:200px;overflow-y:auto"></div>
     </div>
     <div class="mf-row">
       <div><label class="ml">Category</label><select class="ms" id="f-cat"><option value="work">Work</option><option value="personal">Personal</option></select></div>
@@ -996,7 +994,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.1';
+const APP_VERSION='1.1.3';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -2559,10 +2557,68 @@ function setTaskView(v){
 
 
 
+function hideTaskAutocomplete(){
+  const ac=document.getElementById('task-autocomplete');
+  if(ac)ac.style.display='none';
+}
+
+function initTaskAutocomplete(){
+  const inp=document.getElementById('f-name');
+  const ac=document.getElementById('task-autocomplete');
+  if(!inp||!ac||inp._acBound)return;
+  inp._acBound=true;
+  inp.addEventListener('input',function(){
+    const q=inp.value.trim().toLowerCase();
+    if(!q||q.length<2){ac.style.display='none';return;}
+    // Search all tasks (active + archive) including completed ones
+    const arch=loadArch();
+    const allTasks=[...tasks,...arch];
+    const seen=new Set();
+    const matches=allTasks.filter(function(t){
+      if(seen.has(t.name))return false;
+      if(!t.name.toLowerCase().includes(q))return false;
+      seen.add(t.name);return true;
+    }).slice(0,6);
+    if(!matches.length){ac.style.display='none';return;}
+    ac.innerHTML='';
+    matches.forEach(function(t){
+      const item=document.createElement('div');
+      item.className='autocomplete-item';
+      const name=document.createElement('div');name.textContent=t.name;
+      const sub=document.createElement('div');sub.className='autocomplete-item-sub';
+      sub.textContent=t.category+(t.status==='done'?' · completed':'')+(t.dueDate?' · '+t.dueDate:'');
+      item.appendChild(name);item.appendChild(sub);
+      item.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        ac.style.display='none';
+        // Find the live task (may be in archive)
+        const live=tasks.find(function(x){return x.id===t.id;});
+        if(live){
+          // Close new-task modal and open edit for this task
+          closeModal();
+          editTask(t.id);
+        } else {
+          // Archived task — just fill the name so user can recreate
+          inp.value=t.name;
+          const catSel=document.getElementById('f-cat');if(catSel&&t.category)catSel.value=t.category;
+          const priSel=document.getElementById('f-priority');if(priSel&&t.priority)priSel.value=t.priority;
+          const matSel=document.getElementById('f-matrix');if(matSel&&t.matrix)matSel.value=t.matrix;
+          showToast('Task is archived — fields pre-filled');
+        }
+      });
+      ac.appendChild(item);
+    });
+    ac.style.display='block';
+  });
+  inp.addEventListener('blur',function(){setTimeout(function(){ac.style.display='none';},150);});
+  inp.addEventListener('keydown',function(e){if(e.key==='Escape')ac.style.display='none';});
+}
+
 function openModal(){
   editingId=null;window.currentModalSteps=[];
   document.getElementById('modal-ttl').innerText='New Task';
   ['f-name','f-due'].forEach(id=>{document.getElementById(id).value=''});
+  hideTaskAutocomplete();
   document.getElementById('f-cat').value=currentMode==='all'?'work':currentMode;
   document.getElementById('f-matrix').value='2';
   document.getElementById('f-priority').value='medium';
@@ -2570,7 +2626,7 @@ function openModal(){
   renderModalSteps();
   refreshCategorySelect();
   document.getElementById('overlay').classList.add('open');
-  setTimeout(()=>document.getElementById('f-name').focus(),200);
+  setTimeout(()=>{document.getElementById('f-name').focus();initTaskAutocomplete();},200);
 }
 
 function editTask(id){
@@ -2661,7 +2717,7 @@ function deleteTask(id){
     showToast('Task restored');
   });
 }
-function closeModal(){document.getElementById('overlay').classList.remove('open');editingId=null}
+function closeModal(){document.getElementById('overlay').classList.remove('open');editingId=null;hideTaskAutocomplete();}
 function closeOverlayBg(e){if(e.target.id==='overlay')closeModal()}
 
 
@@ -3239,17 +3295,27 @@ function renderHistCalendar(buckets){
   const yr=_histCalDate.getFullYear(),mo=_histCalDate.getMonth();
   const names=["January","February","March","April","May","June","July","August","September","October","November","December"];
   document.getElementById('hist-cal-title').innerText=names[mo]+' '+yr;
+  // Day name headers — same as stats calendar
+  ['S','M','T','W','T','F','S'].forEach(function(d){
+    const h=document.createElement('div');h.className='cal-day-name';h.textContent=d;c.appendChild(h);
+  });
   const firstDay=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate();
   const todayStr=new Date().toISOString().split('T')[0];
-  for(let i=0;i<firstDay;i++){const e=document.createElement('div');e.className='hist-cal-cell';e.style.opacity='0';e.style.pointerEvents='none';c.appendChild(e);}
+  for(let i=0;i<firstDay;i++){
+    const e=document.createElement('div');e.className='cal-cell';e.style.opacity='0';e.style.pointerEvents='none';c.appendChild(e);
+  }
   for(let day=1;day<=dim;day++){
     const ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
     const count=(buckets[ds]||[]).length;
+    const isToday=ds===todayStr;
     const el=document.createElement('div');
-    el.className='hist-cal-cell'+(count?' has-completions':'')+(ds===todayStr?' today-hist':'');
+    el.className='cal-cell'+(isToday?' today':'')+(count?' has-task':'');
     el.textContent=day;
-    if(count){const dot=document.createElement('div');dot.className='hist-cal-dot';el.appendChild(dot);}
-    // Clicking a date opens day overlay showing completed items — independent of the list
+    if(count){
+      // Use same cal-task-count badge as stats calendar
+      const badge=document.createElement('div');badge.className='cal-task-count';badge.textContent=count;
+      el.appendChild(badge);
+    }
     el.addEventListener('click',function(){showHistDayTasks(ds,buckets[ds]||[]);});
     c.appendChild(el);
   }
