@@ -994,7 +994,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.4';
+const APP_VERSION='1.1.5';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -2082,7 +2082,7 @@ function render(){
     const urgent=[...overdue,...dueToday];
     const urgentIds=new Set(urgent.map(t=>t.id));
     const active=incomplete.filter(t=>!urgentIds.has(t.id));
-    const done=filtered.filter(t=>t.status==='done');
+    const done=filtered.filter(t=>t.status==='done').sort((a,b)=>(b.completedAt||b.updatedAt||0)-(a.completedAt||a.updatedAt||0));
     let html='';
     if(overdue.length){
       html+='<div class="section-divider" style="color:var(--red)">&#9888; Past due ('+overdue.length+')</div>'+overdue.map(renderFn).join('');
