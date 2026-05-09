@@ -1,36 +1,56 @@
-const CACHE = 'tracker-v7';
+const CACHE = 'tracker-v8';
+const NOTIF_CACHE = 'tracker-notif-slots'; // separate, version-independent cache for dedup keys
 const OFFLINE_URL = './index.html';
 
 // ── Periodic Background Sync tag ─────────────────────────────────────────
 const PBS_TAG = 'tracker-notif-check';
 
-// ── Helper: get tasks from all open clients via MessageChannel ────────────
-function getTasksFromClient(client){
-  return new Promise(function(resolve){
-    const ch=new MessageChannel();
-    ch.port1.onmessage=function(e){resolve(e.data||[]);};
-    client.postMessage({type:'GET_TASKS'},[ ch.port2]);
-    setTimeout(function(){resolve([]);},2000); // fallback if page doesn't respond
-  });
-}
-
 // ── Core notification check — runs from SW directly ──────────────────────
-// Called by both periodicsync and the SYNC_CHECK message from the page
-async function runNotifCheck(tasks){
+// Called by both periodicsync and the SYNC_CHECK message from the page.
+//
+// KEY DESIGN DECISIONS:
+// 1. Windowed matching: we fire if the current time is within 59 minutes
+//    AFTER a slot (not exact-minute only), because PBS fires roughly hourly
+//    and will almost never land exactly on 10:00/13:00/17:00.
+// 2. Dedup key is per-slot-per-day (not per-minute), stored in a separate
+//    cache that survives SW version upgrades.
+// 3. Custom reminder time is passed in from the page alongside tasks.
+async function runNotifCheck(tasks, reminderTime){
   if(!tasks||!tasks.length) return;
   const now=new Date();
-  const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   const today=new Date(now);today.setHours(0,0,0,0);
   const todayStr=today.toISOString().split('T')[0];
+  const nowMins=now.getHours()*60+now.getMinutes();
 
-  // Fire at 10:00, 13:00, 17:00 — use SW cache to deduplicate per slot per day
-  const slots=['10:00','13:00','17:00'];
-  const slotKey='notif_slot_'+todayStr+'_'+hhmm;
-  const cache=await caches.open(CACHE);
-  const alreadyFired=await cache.match('./'+slotKey);
+  // Build named slots: fixed + custom reminder
+  const namedSlots=[
+    {name:'slot-1000', hhmm:'10:00', mins:10*60},
+    {name:'slot-1300', hhmm:'13:00', mins:13*60},
+    {name:'slot-1700', hhmm:'17:00', mins:17*60},
+  ];
+  if(reminderTime&&reminderTime.match(/^\d{2}:\d{2}$/)){
+    const parts=reminderTime.split(':');
+    const rMins=parseInt(parts[0])*60+parseInt(parts[1]);
+    // Only add if not already one of the fixed slots
+    if(![600,780,1020].includes(rMins)){
+      namedSlots.push({name:'slot-custom', hhmm:reminderTime, mins:rMins});
+    }
+  }
 
-  if(slots.includes(hhmm)&&!alreadyFired){
-    await cache.put('./'+slotKey, new Response('1'));
+  const cache=await caches.open(NOTIF_CACHE);
+
+  for(const slot of namedSlots){
+    // Window: fire if we are between slot time and slot+59 mins
+    const diff=nowMins-slot.mins;
+    if(diff<0||diff>=60) continue; // outside window
+
+    const deupKey='notif_'+todayStr+'_'+slot.name;
+    const alreadyFired=await cache.match('./'+deupKey);
+    if(alreadyFired) continue;
+
+    // Mark as fired immediately to prevent double-fire from rapid SYNC_CHECK calls
+    await cache.put('./'+deupKey, new Response('1'));
+
     const active=tasks.filter(function(t){return t.status!=='done';});
     const overdue=active.filter(function(t){return t.dueDate&&new Date(t.dueDate+'T00:00:00')<today;});
     const dueToday=active.filter(function(t){return t.dueDate===todayStr;});
@@ -39,17 +59,40 @@ async function runNotifCheck(tasks){
       const names=overdue.slice(0,3).map(function(t){return t.name;}).join(', ')+(overdue.length>3?'…':'');
       await self.registration.showNotification(
         overdue.length+' overdue task'+(overdue.length>1?'s':''),
-        {body:names,tag:'tracker-overdue-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png'}
+        {body:names,tag:'tracker-overdue-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
       );
     }
     if(dueToday.length){
       const names=dueToday.slice(0,3).map(function(t){return t.name;}).join(', ')+(dueToday.length>3?'…':'');
+      // Slight delay so two notifications don't stack at exactly the same moment
+      await new Promise(function(r){setTimeout(r,overdue.length?1500:0);});
       await self.registration.showNotification(
         dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today',
-        {body:names,tag:'tracker-today-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png'}
+        {body:names,tag:'tracker-today-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
       );
     }
+
+    // Only fire one slot per check (the earliest window we find)
+    break;
   }
+
+  // Prune old dedup keys from previous days to keep cache clean
+  const keys=await cache.keys();
+  for(const req of keys){
+    if(!req.url.includes(todayStr)){
+      await cache.delete(req);
+    }
+  }
+}
+
+// ── Helper: get tasks from all open clients via MessageChannel ────────────
+function getTasksFromClient(client){
+  return new Promise(function(resolve){
+    const ch=new MessageChannel();
+    ch.port1.onmessage=function(e){resolve(e.data||[]);};
+    client.postMessage({type:'GET_TASKS'},[ch.port2]);
+    setTimeout(function(){resolve([]);},2000); // fallback if page doesn't respond
+  });
 }
 
 // ── Periodic Background Sync ─────────────────────────────────────────────
@@ -58,12 +101,13 @@ self.addEventListener('periodicsync', function(e){
     e.waitUntil(
       clients.matchAll({type:'window',includeUncontrolled:true}).then(async function(list){
         let tasks=[];
-        // Try to get tasks from an open page first
+        let reminderTime='';
         if(list.length){
           tasks=await getTasksFromClient(list[0]);
         }
-        // If no page open or no tasks returned, nothing we can do without a backend
-        if(tasks.length) await runNotifCheck(tasks);
+        // reminderTime will be empty here if page is closed — that's acceptable,
+        // the fixed slots (10:00/13:00/17:00) still fire correctly
+        if(tasks.length) await runNotifCheck(tasks, reminderTime);
       })
     );
   }
@@ -81,13 +125,12 @@ self.addEventListener('message', function(e){
       icon: './icon-192.png',
     });
   }
-  // New: page sends tasks for SW to evaluate and fire notifications
+  // Page sends tasks + reminderTime for SW to evaluate and fire notifications
   if(e.data&&e.data.type==='SYNC_CHECK'&&e.data.tasks){
-    e.waitUntil(runNotifCheck(e.data.tasks));
+    e.waitUntil(runNotifCheck(e.data.tasks, e.data.reminderTime||''));
   }
-  // New: page is requesting tasks — respond via MessageChannel port
+  // Page requesting tasks — SW can't read localStorage so returns empty
   if(e.data&&e.data.type==='GET_TASKS'&&e.ports&&e.ports[0]){
-    // We can't read localStorage from SW — page must send tasks to us
     e.ports[0].postMessage([]);
   }
 });
@@ -126,8 +169,9 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(
+    // Only delete old APP caches — preserve NOTIF_CACHE across upgrades
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE && k !== NOTIF_CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
