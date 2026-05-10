@@ -994,7 +994,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.6';
+const APP_VERSION='1.1.7';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -3184,11 +3184,11 @@ function fireNotif(title, body, tag, taskId){
 let _lastDueNotifDate='';
 function checkDueNotifications(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
-  // Fire at 10:00, 13:00, 17:00 plus the user's saved daily reminder time
+  // Fire at 10:30, 13:00, 17:00 plus the user's saved daily reminder time
   const now=new Date();
   const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   const savedTime=localStorage.getItem('donezo_notif_time')||'';
-  const slots=['10:00','13:00','17:00'];
+  const slots=['10:30','13:00','17:00'];
   if(savedTime&&!slots.includes(savedTime)) slots.push(savedTime);
   const todaySlotKey='donezo_notif_fired_'+now.toISOString().split('T')[0]+'_'+hhmm;
   if(!slots.includes(hhmm)) return;
@@ -3294,7 +3294,7 @@ function scheduleNotifLoop(){
   _notifTimer=setInterval(function(){
     checkTimeBlockNotifs();
     checkStepNotifs();
-    checkDueNotifications(); // only fires at 10:00, 13:00, 17:00
+    checkDueNotifications(); // only fires at 10:30, 13:00, 17:00
     sendTasksToSW();         // keep SW in sync for background checks
   },60000); // every minute
 }

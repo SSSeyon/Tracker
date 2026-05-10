@@ -11,7 +11,7 @@ const PBS_TAG = 'tracker-notif-check';
 // KEY DESIGN DECISIONS:
 // 1. Windowed matching: we fire if the current time is within 59 minutes
 //    AFTER a slot (not exact-minute only), because PBS fires roughly hourly
-//    and will almost never land exactly on 10:00/13:00/17:00.
+//    and will almost never land exactly on 10:30/13:00/17:00.
 // 2. Dedup key is per-slot-per-day (not per-minute), stored in a separate
 //    cache that survives SW version upgrades.
 // 3. Custom reminder time is passed in from the page alongside tasks.
@@ -24,7 +24,7 @@ async function runNotifCheck(tasks, reminderTime){
 
   // Build named slots: fixed + custom reminder
   const namedSlots=[
-    {name:'slot-1000', hhmm:'10:00', mins:10*60},
+    {name:'slot-1030', hhmm:'10:30', mins:10*60+30},
     {name:'slot-1300', hhmm:'13:00', mins:13*60},
     {name:'slot-1700', hhmm:'17:00', mins:17*60},
   ];
@@ -106,7 +106,7 @@ self.addEventListener('periodicsync', function(e){
           tasks=await getTasksFromClient(list[0]);
         }
         // reminderTime will be empty here if page is closed — that's acceptable,
-        // the fixed slots (10:00/13:00/17:00) still fire correctly
+        // the fixed slots (10:30/13:00/17:00) still fire correctly
         if(tasks.length) await runNotifCheck(tasks, reminderTime);
       })
     );
