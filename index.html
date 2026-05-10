@@ -717,7 +717,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
       <div class="settings-group">
         <div class="chart-header" style="margin-bottom:8px">UI Customisation</div>
         <div class="settings-item"><div><div class="settings-label">Floating Add Button</div><div class="settings-desc">Persistent + button visible on all pages</div></div><label class="switch"><input type="checkbox" id="ui-show-fab" checked onchange="updateUISetting('showFab',this.checked)"><span class="slider"></span></label></div>
-        <div class="settings-item" style="padding:4px 0"><div><div class="settings-label">Reload App</div><div class="settings-desc">Force a full refresh — equivalent to F5 on desktop</div></div><button onclick="hardReload()" class="ai-coach-btn" style="color:var(--text-dim)">Reload</button></div>
+        <div class="settings-item" style="padding:4px 0"><div><div class="settings-label">Reload App</div><div class="settings-desc">Clears cached files and reloads fresh from the server</div></div><button onclick="hardReload()" class="ai-coach-btn" style="color:var(--text-dim)">Reload</button></div>
         
         
         
@@ -994,7 +994,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.7';
+const APP_VERSION='1.1.8';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1076,9 +1076,17 @@ function tapSyncBadge(){
   });
 }
 
-// Full page reload — equivalent to F5, works in PWA
+// Hard reload — clears SW cache then reloads, forcing a fresh fetch from the network.
+// This is a true hard refresh (equivalent to Ctrl+Shift+R on desktop) rather than
+// a regular reload which may still serve cached content from the SW.
 function hardReload(){
-  window.location.reload(true);
+  if('serviceWorker' in navigator && navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage({type:'HARD_RELOAD'});
+    // Give the SW a moment to clear its cache before we reload
+    setTimeout(function(){ window.location.reload(true); }, 400);
+  } else {
+    window.location.reload(true);
+  }
 }
 
 function forceSyncWithCallback(cb){
@@ -3752,6 +3760,13 @@ if(!navigator.onLine){const b=document.getElementById('offline-banner');if(b)b.s
 
 // ── PWA: service worker ──────────────────────────────────────────────
 if('serviceWorker' in navigator){
+  // Listen for notifications fired by the SW (background/PBS notifications)
+  // so they appear in the in-app notification log even when fired outside the page
+  navigator.serviceWorker.addEventListener('message', function(e){
+    if(e.data && e.data.type === 'NOTIF_FIRED'){
+      logNotif(e.data.title, e.data.body, e.data.taskId || null);
+    }
+  });
   navigator.serviceWorker.register('./sw.js')
     .then(reg => console.log('SW registered, scope:', reg.scope))
     .catch(e => console.log('SW registration failed:', e));

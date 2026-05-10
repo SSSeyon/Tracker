@@ -61,6 +61,7 @@ async function runNotifCheck(tasks, reminderTime){
         overdue.length+' overdue task'+(overdue.length>1?'s':''),
         {body:names,tag:'tracker-overdue-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
       );
+      await broadcastToClients({type:'NOTIF_FIRED', title:overdue.length+' overdue task'+(overdue.length>1?'s':''), body:names, taskId:overdue.length===1?overdue[0].id:null});
     }
     if(dueToday.length){
       const names=dueToday.slice(0,3).map(function(t){return t.name;}).join(', ')+(dueToday.length>3?'…':'');
@@ -70,6 +71,7 @@ async function runNotifCheck(tasks, reminderTime){
         dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today',
         {body:names,tag:'tracker-today-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
       );
+      await broadcastToClients({type:'NOTIF_FIRED', title:dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today', body:names, taskId:dueToday.length===1?dueToday[0].id:null});
     }
 
     // Only fire one slot per check (the earliest window we find)
@@ -83,6 +85,12 @@ async function runNotifCheck(tasks, reminderTime){
       await cache.delete(req);
     }
   }
+}
+
+// ── Helper: broadcast a message to all open page clients ─────────────────
+async function broadcastToClients(msg){
+  const list = await clients.matchAll({type:'window', includeUncontrolled:true});
+  list.forEach(function(c){ c.postMessage(msg); });
 }
 
 // ── Helper: get tasks from all open clients via MessageChannel ────────────
@@ -115,6 +123,16 @@ self.addEventListener('periodicsync', function(e){
 
 // ── Message handler from page ─────────────────────────────────────────────
 self.addEventListener('message', function(e){
+  // Hard reload — delete all app caches so next load fetches fresh from network
+  if(e.data&&e.data.type==='HARD_RELOAD'){
+    e.waitUntil(
+      caches.keys().then(function(keys){
+        return Promise.all(
+          keys.filter(function(k){ return k !== 'tracker-notif-slots'; }).map(function(k){ return caches.delete(k); })
+        );
+      })
+    );
+  }
   // Legacy: direct show notification
   if(e.data&&e.data.type==='SHOW_NOTIF'){
     self.registration.showNotification(e.data.title,{
