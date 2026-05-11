@@ -254,6 +254,8 @@ body.theme-personal .nav-item.active{background:#e8f5ee;color:var(--green)}
 .tr-check.checked::after{content:"check";font-family:monospace;color:white;font-weight:800;font-size:10px}
 .tr-name{flex:1;font-size:13.5px;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-width:0}
 .tr-name.done{text-decoration:line-through;opacity:0.5}
+body.dark-mode .overdue-card .tr-name,
+body.dark-mode .overdue-card .tc-title{color:#000000}
 .tr-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .tr-chip{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
 .tr-prog{width:48px;height:4px;background:var(--border-color);border-radius:99px;overflow:hidden;flex-shrink:0}
@@ -994,7 +996,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.8';
+const APP_VERSION='1.1.10';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1522,6 +1524,20 @@ function haptic(type){
   else if(type==='heavy') navigator.vibrate(60);
 }
 
+// Fired once on app load when overdue tasks are present.
+// 5 seconds of pulsed vibration (200ms on, 150ms off) to alert the user.
+let _overdueVibrated=false;
+function overdueVibration(){
+  if(_overdueVibrated) return; // only once per session
+  if(!navigator.vibrate) return;
+  _overdueVibrated=true;
+  // 5000ms total: alternating 200ms buzz / 150ms pause
+  const pattern=[];
+  let elapsed=0;
+  while(elapsed<5000){pattern.push(200);elapsed+=200;pattern.push(150);elapsed+=150;}
+  navigator.vibrate(pattern);
+}
+
 let _audioCtx = null;
 let _noiseNode = null;
 let _noiseGain = null;
@@ -2025,7 +2041,9 @@ function render(){
       const blockedBadge=bl.length?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle;opacity:1">BLOCKED</span>':'';
       const nameStyle=bl.length?'opacity:0.55;':'';
       const pinBtn='<button class="tr-pin" data-pin="'+t.id+'" title="'+(t.pinned?'Unpin':'Pin to top')+'" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:'+(t.pinned?'1':'0.3')+';flex-shrink:0;padding:0 2px">&#128204;</button>';
-      const out='<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+(t.pinned?' pinned':'')+' " data-id="'+t.id+'">'
+      const isOverdue=overdueIds&&overdueIds.has(t.id);
+      const overdueStyle=isOverdue&&!isDone?'background:#F5D6D7;':'';
+      const out='<div class="task-row prio-'+t.priority+(isDone?' is-done':'')+(t.pinned?' pinned':'')+(isOverdue&&!isDone?' overdue-card':'')+'" data-id="'+t.id+'" style="'+overdueStyle+'">'
         +'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'
         +'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'
         +'<button class="tr-check'+(isDone?' checked':'')+' " data-check="'+t.id+'"></button>'
@@ -2058,7 +2076,9 @@ function render(){
         +(uiSettings.showSteps&&steps.length?'<span style="color:var(--purple)">'+doneS+'/'+steps.length+' steps</span>':'');
       const isBlocked=(function(){return tasks.filter(function(x){return x.blocking===t.id&&x.status!=='done';}).length>0;}());
       const cardTitle=t.name+(ndsCard?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+ndsCard+')</span>':'')+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'');
-      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+'" style="'+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
+      const isOverdueCard=overdueIds&&overdueIds.has(t.id);
+      const overdueCardBg=isOverdueCard&&!isDone?'background:#F5D6D7;':'';
+      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+(isOverdueCard&&!isDone?' overdue-card':'')+'" style="'+overdueCardBg+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
     }
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;
@@ -2094,6 +2114,7 @@ function render(){
     let html='';
     if(overdue.length){
       html+='<div class="section-divider" style="color:var(--red)">&#9888; Past due ('+overdue.length+')</div>'+overdue.map(renderFn).join('');
+      overdueVibration(); // pulse vibration on load when overdue tasks exist
     }
     if(dueToday.length){
       html+='<div class="section-divider" style="color:var(--p-med)">&#128197; Due today ('+dueToday.length+')</div>'+dueToday.map(renderFn).join('');
