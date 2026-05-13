@@ -996,7 +996,7 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.1.10';
+const APP_VERSION='1.1.11';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
@@ -1051,9 +1051,16 @@ function initFirebase(){
       const dot=document.getElementById('sync-dot-el');
       const lbl=document.getElementById('sync-lbl-el');
       if(fbConnected){
+        const wasOffline=_fbEverConnected; // true means this is a reconnect, not first connect
         _fbEverConnected=true;
         if(dot){dot.style.background='#1a5c38';dot.classList.remove('pulsing');}
         if(lbl)lbl.innerText='Synced';
+        // On reconnect (not first connect — first connect is handled by fbRef.on('value'))
+        // force a fresh fetch so data is always current after coming back online
+        if(wasOffline) fbRef.once('value').then(function(snap){
+          const data=snap.val();
+          if(data){tasks=Object.values(data);localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));render();}
+        }).catch(function(){});
       } else {
         if(dot){dot.style.background='#9aa5b4';dot.classList.add('pulsing');}
         if(lbl)lbl.innerText=_fbEverConnected?'Offline':'Connecting…';
@@ -1097,7 +1104,20 @@ function forceSyncWithCallback(cb){
   // the label when live — avoid overriding it with a flash of Syncing)
   const lbl=document.getElementById('sync-lbl-el');
   if(!fbConnected&&lbl)lbl.innerText='Syncing…';
+  // Timeout guard: if Firebase doesn't respond within 8s (e.g. WebSocket still
+  // re-establishing after browsing data was cleared), fall back gracefully
+  let _settled=false;
+  const _timeout=setTimeout(function(){
+    if(_settled) return;
+    _settled=true;
+    console.warn('Force sync timed out — Firebase WebSocket may still be reconnecting');
+    render(); // render whatever is in memory
+    if(lbl&&!fbConnected)lbl.innerText='Offline';
+    if(cb)cb();
+  },8000);
   fbRef.once('value').then(function(snap){
+    if(_settled){clearTimeout(_timeout);return;}
+    _settled=true;clearTimeout(_timeout);
     const data=snap.val();
     tasks=data?Object.values(data):[];
     localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
@@ -1105,6 +1125,8 @@ function forceSyncWithCallback(cb){
     if(Notification.permission==='granted') checkDueNotifications();
     if(cb)cb();
   }).catch(function(e){
+    if(_settled){clearTimeout(_timeout);return;}
+    _settled=true;clearTimeout(_timeout);
     console.warn('Force sync failed:',e);
     render();
     if(lbl&&!fbConnected)lbl.innerText='Sync failed';
@@ -3671,7 +3693,10 @@ updateDailyRing();
 // the WebSocket keeps data current automatically. Only force-fetch if offline.
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='visible'){
-    if(!fbConnected) forceSync();
+    // Always re-fetch on tab focus — the realtime listener keeps data live
+    // when the tab is active, but after a long background or cache clear,
+    // the WebSocket may have dropped and reconnected without triggering render
+    forceSync();
     if(Notification.permission==='granted') scheduleNotifLoop();
   }
 });
