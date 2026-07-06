@@ -1075,10 +1075,16 @@ body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fc
 </div>
 
 <script>
-const APP_VERSION='1.2.0';
+const APP_VERSION='1.2.1';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
-let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];
+// Parse JSON from localStorage without letting corrupt data crash the app
+function safeParse(raw,fallback){try{const v=JSON.parse(raw);return v==null?fallback:v;}catch(e){return fallback;}}
+// Escape user-entered text (task names, step text, category names) before
+// injecting into innerHTML — a title like `Fix <config> bug` or one with
+// quotes would otherwise break the markup
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+let tasks=safeParse(localStorage.getItem(STORAGE_KEY),[]);
 
 // ── Firebase ─────────────────────────────────────────────────────────
 const FB_CONFIG={
@@ -1231,7 +1237,7 @@ function fbSave(t){
 const ARCH_KEY='donezo_archive';
 let archRef=null;
 
-function loadArch(){return JSON.parse(localStorage.getItem(ARCH_KEY)||'[]');}
+function loadArch(){return safeParse(localStorage.getItem(ARCH_KEY),[]);}
 function saveArch(arch){
   localStorage.setItem(ARCH_KEY,JSON.stringify(arch));
   if(archRef) archRef.set(arch.reduce(function(o,t){o[t.id.replace(/[.#$\[\]]/g,'_')]=t;return o;},{})).catch(function(e){console.warn('Archive sync error:',e);});
@@ -1239,7 +1245,7 @@ function saveArch(arch){
 function fbDelete(id){
   if(fbRef)fbRef.child(id).remove().catch(e=>console.warn('FB delete error:',e));
 }
-let uiSettings=JSON.parse(localStorage.getItem(UI_KEY))||{showMatrix:true,showEmojis:true,showProgress:true,showDates:true,showSteps:true,showFab:true};
+let uiSettings=safeParse(localStorage.getItem(UI_KEY),{showMatrix:true,showEmojis:true,showProgress:true,showDates:true,showSteps:true,showFab:true});
 uiSettings.showMatrix=true;uiSettings.showEmojis=true;uiSettings.showProgress=true;uiSettings.showDates=true;uiSettings.showSteps=true;
 let currentMode='all',currentDashboardView='list',sortMode=localStorage.getItem('donezo_sort')||'recent',currentView='dashboard';
 let editingId=null,currentCalDate=new Date(),selectedDateStr='',doneCollapsed=true,taskView='rows';
@@ -1247,20 +1253,6 @@ window.currentModalSteps=[];
 let charts={category:null,trend:null};
 let renderTimer=null;
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(render,60)}
-
-const getFutureDate=d=>{const x=new Date();x.setDate(x.getDate()+d);return x.toISOString().split('T')[0]};
-const SAMPLES=[
-  {id:'w1',name:'Quarterly Project Report',category:'work',status:'todo',priority:'high',matrix:'1',dueDate:getFutureDate(15),updatedAt:Date.now(),steps:[{id:'ws1-1',text:'Gather sales data',status:'completed',dueDate:getFutureDate(5)},{id:'ws1-2',text:'Create draft outline',status:'in-progress',dueDate:getFutureDate(10)},{id:'ws1-3',text:'Review with manager',status:'not-started',dueDate:getFutureDate(14)}]},
-  {id:'w2',name:'New Client Onboarding',category:'work',status:'todo',priority:'medium',matrix:'2',dueDate:getFutureDate(20),updatedAt:Date.now(),steps:[{id:'ws2-1',text:'Send welcome email',status:'completed',dueDate:getFutureDate(3)},{id:'ws2-2',text:'Configure Slack channel',status:'completed',dueDate:getFutureDate(4)}]},
-  {id:'w3',name:'Email Inbox Zero',category:'work',status:'done',priority:'low',matrix:'4',dueDate:getFutureDate(-1),updatedAt:Date.now(),steps:[{id:'ws3-1',text:'Archive threads',status:'completed'}]},
-  {id:'p1',name:'Weekly Meal Prep',category:'personal',status:'todo',priority:'high',matrix:'2',dueDate:getFutureDate(7),updatedAt:Date.now(),steps:[{id:'ps1-1',text:'Write grocery list',status:'completed',dueDate:getFutureDate(1)},{id:'ps1-2',text:'Buy ingredients',status:'in-progress',dueDate:getFutureDate(2)}]},
-  {id:'p2',name:'Fitness Routine',category:'personal',status:'todo',priority:'medium',matrix:'2',dueDate:getFutureDate(5),updatedAt:Date.now(),steps:[{id:'ps2-1',text:'Morning stretch',status:'completed'}]},
-  {id:'p3',name:'Home Organisation',category:'personal',status:'todo',priority:'low',matrix:'4',dueDate:getFutureDate(12),updatedAt:Date.now(),steps:[{id:'ps3-1',text:'Clear bookshelf',status:'completed'}]},
-  {id:'p4',name:'Weekend Hiking Trip',category:'personal',status:'todo',priority:'medium',matrix:'2',dueDate:getFutureDate(10),updatedAt:Date.now(),steps:[]},
-  {id:'p5',name:'Learn New Recipe',category:'personal',status:'done',priority:'low',matrix:'4',dueDate:getFutureDate(-2),updatedAt:Date.now(),steps:[{id:'ps5-1',text:'Buy ingredients',status:'completed'}]}
-];
-
-
 
 // ── Gamification ─────────────────────────────────────────────────────
 const GK = 'donezo_gamify';
@@ -1290,6 +1282,33 @@ const CHALLENGES = [
   {id:'c4', name:'Streak Starter', desc:'Maintain a 3-day streak',        target:3,  type:'rolling', reward:120, xpKey:'currentStreak'},
   {id:'c5', name:'Personal Best',  desc:'Complete 5 personal tasks',      target:5,  type:'rolling', reward:90,  xpKey:'personalDone'},
 ];
+
+// Current progress values per challenge key, derived from gamify state
+function challengeVals(g){
+  const today=toLocalISO(new Date());
+  const todayDone=g.lastDoneDate===today?g.todayDone:0;
+  return {todayDone,weekWorkDone:g.weekWorkDone,highDone:g.highDone,
+    currentStreak:g.currentStreak,personalDone:g.personalDone};
+}
+
+// Award any newly-completed challenges. Mutates g (challengeDone + xp) and
+// returns true if anything changed. Called from onTaskCompleted so rewards
+// land the moment a task is finished — not only when the Progress tab opens.
+function checkChallenges(g){
+  if(!g.challengeDone) g.challengeDone={};
+  const vals=challengeVals(g);
+  let changed=false;
+  CHALLENGES.forEach(function(ch){
+    const prog=Math.min(ch.target,vals[ch.xpKey]||0);
+    if(!g.challengeDone[ch.id]&&prog>=ch.target){
+      g.challengeDone[ch.id]=true;
+      g.xp+=ch.reward;
+      changed=true;
+      setTimeout(function(){showToast('🏅 Challenge complete: '+ch.name+' +'+ch.reward+' XP');},800);
+    }
+  });
+  return changed;
+}
 
 
 // ── Themes ───────────────────────────────────────────────────────────
@@ -1356,13 +1375,13 @@ function initTheme(){
     }).catch(function(){});
   }
 }
-function getWeekKey(){var d=new Date();var day=d.getDay(),diff=d.getDate()-day+(day===0?-6:1);var mon=new Date(d.setDate(diff));return mon.toISOString().split('T')[0];}
+function getWeekKey(){var d=new Date();var day=d.getDay(),diff=d.getDate()-day+(day===0?-6:1);var mon=new Date(d.setDate(diff));return toLocalISO(mon);}
 function loadGamify(){
   const d=localStorage.getItem(GK);
   const def={xp:0,totalDone:0,highDone:0,personalDone:0,currentStreak:0,bestStreak:0,
     lastDoneDate:'',allClearCount:0,dailyGoalHits:0,maxDoneInDay:0,todayDone:0,
     weekWorkDone:0,dailyGoal:3,earnedBadges:[],weekHistory:{},challengeDone:{},challengeWeek:''};
-  const g=d?{...def,...JSON.parse(d)}:def;
+  const g=d?{...def,...safeParse(d,{})}:def;
   // reset challenges weekly
   const thisWeek=getWeekKey();
   if(g.challengeWeek!==thisWeek){g.challengeDone={};g.challengeWeek=thisWeek;saveGamify(g);}
@@ -1382,15 +1401,16 @@ function xpToNextLevel(xp){
 
 function onTaskCompleted(task){
   const g=loadGamify();
+  const prevXP=g.xp; // captured before any XP is added (task, goal bonus, challenges)
   const earned=XP_PER[task.priority]||10;
   g.xp+=earned;
   g.totalDone++;
   if(task.priority==='high') g.highDone++;
   if(task.category==='personal') g.personalDone++;
 
-  // streak
-  const today=new Date().toISOString().split('T')[0];
-  const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  // streak — use local dates (toISOString shifts to UTC and breaks around midnight)
+  const today=toLocalISO(new Date());
+  const yesterday=toLocalISO(new Date(Date.now()-86400000));
   if(g.lastDoneDate===today){
     g.todayDone++;
   } else if(g.lastDoneDate===yesterday){
@@ -1409,9 +1429,9 @@ function onTaskCompleted(task){
   g.weekHistory[today]=(g.weekHistory[today]||0)+1;
 
   // week work done (rolling 7d)
-  const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
+  const weekAgo=toLocalISO(new Date(Date.now()-7*86400000));
   g.weekWorkDone=tasks.filter(t=>t.status==='done'&&t.category==='work'&&(t.completedAt||t.updatedAt)&&
-    new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]>=weekAgo).length;
+    toLocalISO(new Date(t.completedAt||t.updatedAt))>=weekAgo).length;
 
   // daily goal
   if(g.todayDone>=g.dailyGoal&&(g.lastGoalHitDate!==today)){
@@ -1425,8 +1445,11 @@ function onTaskCompleted(task){
   const remaining=tasks.filter(t=>t.status!=='done');
   if(remaining.length===0) g.allClearCount=(g.allClearCount||0)+1;
 
+  // challenges — award immediately on completion
+  checkChallenges(g);
+
   // check level up
-  const prevLevel=getLevel(g.xp-earned);
+  const prevLevel=getLevel(prevXP);
   const newLevel=getLevel(g.xp);
   if(newLevel>prevLevel){
     showToast('🏆 Level up! You are now '+LEVEL_NAMES[newLevel]+' (Lvl '+newLevel+')');
@@ -1538,6 +1561,8 @@ function setDailyGoal(val){
 
 function renderGamify(){
   const g=loadGamify();
+  // Catch-up pass: award anything earned while the tab wasn't open
+  if(checkChallenges(g)) saveGamify(g);
   updateXPBar(g);
 
   // streak
@@ -1549,7 +1574,7 @@ function renderGamify(){
     :'Complete a task today to start your streak';
 
   // daily goal
-  const today=new Date().toISOString().split('T')[0];
+  const today=toLocalISO(new Date());
   const todayDone=g.lastDoneDate===today?g.todayDone:0;
   const goalPct=Math.min(100,Math.round(todayDone/g.dailyGoal*100));
   document.getElementById('g-goal-label').innerText=todayDone+' / '+g.dailyGoal+' today';
@@ -1558,26 +1583,14 @@ function renderGamify(){
   const inp=document.getElementById('g-goal-input');
   if(inp) inp.value=g.dailyGoal;
 
-  // challenges
+  // challenges — display only (awarding happens in checkChallenges)
   const chalEl=document.getElementById('g-challenges');
   if(chalEl){
-    // compute progress per challenge
-    const todayWorkDone=tasks.filter(t=>t.status==='done'&&t.category==='work'&&
-      (t.completedAt||t.updatedAt)&&new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]===today).length;
-    const vals={todayDone,weekWorkDone:g.weekWorkDone,highDone:g.highDone,
-      currentStreak:g.currentStreak,personalDone:g.personalDone};
+    const vals=challengeVals(g);
     chalEl.innerHTML=CHALLENGES.map(ch=>{
       const prog=Math.min(ch.target,vals[ch.xpKey]||0);
       const pct=Math.round(prog/ch.target*100);
       const done=g.challengeDone&&g.challengeDone[ch.id];
-      // auto-award
-      if(!done&&prog>=ch.target){
-        if(!g.challengeDone) g.challengeDone={};
-        g.challengeDone[ch.id]=true;
-        g.xp+=ch.reward;
-        saveGamify(g);
-        setTimeout(()=>showToast('🏅 Challenge complete: '+ch.name+' +'+ch.reward+' XP'),800);
-      }
       return '<div class="challenge-card'+(done?' is-done':'')+'">'
         +'<div class="challenge-header">'
         +'<span class="challenge-name">'+(done?'✅ ':'')+ch.name+'</span>'
@@ -1598,7 +1611,7 @@ function renderGamify(){
   const barData=[];
   for(let i=6;i>=0;i--){
     const d=new Date(now);d.setDate(now.getDate()-i);
-    const ds=d.toISOString().split('T')[0];
+    const ds=toLocalISO(d);
     const cnt=weekHistory[ds]||0;
     weekTotal+=cnt;
     weekXP+=cnt*20;
@@ -1653,7 +1666,7 @@ function overdueVibration(){
 let _audioCtx = null;
 let _noiseNode = null;
 let _noiseGain = null;
-let _soundEnabled = JSON.parse(localStorage.getItem('donezo_sound') || 'true');
+let _soundEnabled = safeParse(localStorage.getItem('donezo_sound'), true);
 let _noiseType = localStorage.getItem('donezo_noise') || 'off';
 
 function getAudioCtx(){
@@ -1769,7 +1782,7 @@ function showToast(msg,undoFn){
 function renderModalSteps(){
   const c=document.getElementById('steps-list');if(!c)return;
   if(!window.currentModalSteps.length){c.innerHTML=`<div style="text-align:center;font-size:11px;color:var(--text-muted)">No steps added</div>`;return}
-  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div style="display:flex;align-items:center;gap:8px"><button onclick="cycleStepStatus('${s.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);font-size:10px;min-width:80px;cursor:pointer;background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'#eee'};color:${s.status==='not-started'?'#333':'#fff'};font-family:inherit">${s.status.replace('-',' ')}</button><input value="${s.text}" oninput="updateStepText('${s.id}',this.value)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:transparent;color:var(--text-main);font-family:inherit" placeholder="Step description…"><button onclick="removeStep('${s.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button></div><div style="display:flex;align-items:center;gap:8px;padding-left:0;flex-wrap:nowrap;overflow-x:auto"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Deadline:</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Time:</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"></div></div></div>`).join('');
+  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div style="display:flex;align-items:center;gap:8px"><button onclick="cycleStepStatus('${s.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);font-size:10px;min-width:80px;cursor:pointer;background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'#eee'};color:${s.status==='not-started'?'#333':'#fff'};font-family:inherit">${s.status.replace('-',' ')}</button><input value="${esc(s.text)}" oninput="updateStepText('${s.id}',this.value)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:transparent;color:var(--text-main);font-family:inherit" placeholder="Step description…"><button onclick="removeStep('${s.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px">×</button></div><div style="display:flex;align-items:center;gap:8px;padding-left:0;flex-wrap:nowrap;overflow-x:auto"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Deadline:</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text-muted)">Time:</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" style="padding:4px;border:1px solid var(--border-color);border-radius:6px;font-size:11px;background:transparent;color:var(--text-main)"></div></div></div>`).join('');
 }
 
 function getTrendData(){
@@ -1777,17 +1790,17 @@ function getTrendData(){
   const labels=[],work=[],personal=[];
   for(let i=6;i>=0;i--){
     const d=new Date();d.setDate(d.getDate()-i);
-    const ds=d.toISOString().split('T')[0];
+    const ds=toLocalISO(d);
     labels.push(i===0?'Today':d.getDate()+' '+mo[d.getMonth()]);
     // Count completed tasks
     let wCount=tasks.filter(t=>t.category==='work'&&t.status==='done'&&(t.completedAt||t.updatedAt)&&
-      new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]===ds).length;
+      toLocalISO(new Date(t.completedAt||t.updatedAt))===ds).length;
     let pCount=tasks.filter(t=>t.category==='personal'&&t.status==='done'&&(t.completedAt||t.updatedAt)&&
-      new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]===ds).length;
+      toLocalISO(new Date(t.completedAt||t.updatedAt))===ds).length;
     // Also count completed steps
     tasks.forEach(function(t){
       (t.steps||[]).filter(function(s){return s.status==='completed'&&s.completedAt;}).forEach(function(s){
-        if(new Date(s.completedAt).toISOString().split('T')[0]===ds){
+        if(toLocalISO(new Date(s.completedAt))===ds){
           if(t.category==='work') wCount++;
           else pCount++;
         }
@@ -1873,7 +1886,7 @@ function renderCatCompletion(){
     var col=getCatColor(cat);
     return '<div style="margin-bottom:12px">'
       +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px">'
-      +'<span style="color:var(--text-main);text-transform:capitalize">'+cat+'</span>'
+      +'<span style="color:var(--text-main);text-transform:capitalize">'+esc(cat)+'</span>'
       +'<span style="color:'+col+'">'+pct+'% ('+d.done+'/'+d.total+')</span>'
       +'</div>'
       +'<div style="height:8px;background:var(--border-color);border-radius:4px;overflow:hidden">'
@@ -1954,7 +1967,7 @@ function showDayTasks(ds){
       var row=document.createElement('div');
       row.className='time-block-row';
       row.innerHTML='<div class="time-block-time">'+timeStr+'</div>'
-        +'<div class="time-block-name">'+t.name+'</div>'
+        +'<div class="time-block-name">'+esc(t.name)+'</div>'
         +(dur?'<div class="time-block-dur">'+dur+'</div>':'')
         +'<button class="tb-focus-btn" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--purple);font-weight:700;padding:0 4px;white-space:nowrap">Focus</button>';
       row.addEventListener('click',function(){closeDayView();showTaskDetail(t.id);});
@@ -1970,10 +1983,10 @@ function showDayTasks(ds){
     untimed.forEach(function(t){
       var row=document.createElement('div');
       row.className='day-task-item';
-      row.innerHTML='<div style="font-weight:700;margin-bottom:4px">'+t.name+'</div>'
+      row.innerHTML='<div style="font-weight:700;margin-bottom:4px">'+esc(t.name)+'</div>'
         +'<div style="font-size:10px;color:var(--text-muted);display:flex;gap:8px">'
         +'<span class="badge-priority '+t.priority+'">'+t.priority+'</span>'
-        +'<span>&bull;</span><span style="text-transform:capitalize">'+t.category+'</span>'
+        +'<span>&bull;</span><span style="text-transform:capitalize">'+esc(t.category)+'</span>'
         +'</div>';
       row.addEventListener('click',function(){closeDayView();showTaskDetail(t.id);});
       document.getElementById('day-tasks-list').appendChild(row);
@@ -1997,7 +2010,7 @@ function renderMatrixVisual(){
   ['1','2','3','4'].forEach(q=>{
     const list=document.getElementById(`q${q}-list`);if(!list)return;
     const qt=tasks.filter(t=>t.status!=='done'&&(t.matrix||'4')===q).slice(0,5);
-    list.innerHTML=qt.length?qt.map(t=>`<div class="matrix-v-item" title="${t.name}" onclick="showTaskDetail('${t.id}')">${t.name}</div>`).join(''):`<div style="font-size:8px;color:var(--text-muted);padding:4px">No tasks</div>`;
+    list.innerHTML=qt.length?qt.map(t=>`<div class="matrix-v-item" title="${esc(t.name)}" onclick="showTaskDetail('${t.id}')">${esc(t.name)}</div>`).join(''):`<div style="font-size:8px;color:var(--text-muted);padding:4px">No tasks</div>`;
   });
 }
 
@@ -2006,15 +2019,6 @@ function renderHeatmap(){
   const now=new Date(),map={};
   tasks.forEach(t=>{if(t.status==='done'){const d=new Date(t.updatedAt||Date.now()).toDateString();map[d]=(map[d]||0)+1}});
   for(let i=29;i>=0;i--){const d=new Date();d.setDate(now.getDate()-i);const cnt=map[d.toDateString()]||0;const lvl=cnt>5?4:cnt>2?3:cnt>0?1:0;grid.innerHTML+=`<div class="heatmap-day lvl-${lvl}" title="${d.toDateString()}"></div>`}
-}
-
-function dueDateChip(dueDate,isDone){
-  if(!dueDate||isDone)return'';
-  const diff=Math.ceil((new Date(dueDate)-new Date())/86400000);
-  const[,m,d]=dueDate.split('-');
-  const label=diff<0?'Overdue':diff===0?'Today':`${parseInt(d)} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1]}`;
-  const cls=diff<0?'overdue':diff<=3?'soon':'normal';
-  return`<span class="due-chip ${cls}">📅 ${label}</span>`;
 }
 
 function updateManualProgress(id,val){
@@ -2165,7 +2169,7 @@ function render(){
       }
       const nds=nextDueStep(t);
       const ndsTrunc=nds&&nds.length>22?nds.substring(0,20)+'…':nds;
-      const suffix=ndsTrunc?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+ndsTrunc+')</span>':'';
+      const suffix=ndsTrunc?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+esc(ndsTrunc)+')</span>':'';
       const bl=tasks.filter(x=>x.blocking===t.id&&x.status!=='done');
       const blockedBadge=bl.length?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle;opacity:1">BLOCKED</span>':'';
       const nameStyle=bl.length?'opacity:0.55;':'';
@@ -2176,7 +2180,7 @@ function render(){
         +'<div class="swipe-bg swipe-done-bg"><span class="swipe-icon">&#10003; Done</span></div>'
         +'<div class="swipe-bg swipe-del-bg"><span class="swipe-icon-del">&#215; Delete</span></div>'
         +'<button class="tr-check'+(isDone?' checked':'')+' " data-check="'+t.id+'"></button>'
-        +'<span class="tr-name'+(isDone?' done':'')+' " data-detail="'+t.id+'" style="'+nameStyle+'">'+t.name+suffix+blockedBadge+'</span>'
+        +'<span class="tr-name'+(isDone?' done':'')+' " data-detail="'+t.id+'" style="'+nameStyle+'">'+esc(t.name)+suffix+blockedBadge+'</span>'
         +'<div class="tr-right">'+dateLbl+stepsHtml
         +'<div class="tr-prog"><div class="tr-prog-fill" style="width:'+prog+'%"></div></div>'
         +pinBtn
@@ -2204,7 +2208,7 @@ function render(){
         +(uiSettings.showMatrix?'<span class="matrix-badge q'+mVal+'">'+mLabel+'</span>':'')
         +(uiSettings.showSteps&&steps.length?'<span style="color:var(--purple)">'+doneS+'/'+steps.length+' steps</span>':'');
       const isBlocked=(function(){return tasks.filter(function(x){return x.blocking===t.id&&x.status!=='done';}).length>0;}());
-      const cardTitle=t.name+(ndsCard?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+ndsCard+')</span>':'')+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'');
+      const cardTitle=esc(t.name)+(ndsCard?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+esc(ndsCard)+')</span>':'')+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'');
       const isOverdueCard=overdueIds&&overdueIds.has(t.id);
       const overdueCardBg=isOverdueCard&&!isDone?'background:#F5D6D7;':'';
       return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+(isOverdueCard&&!isDone?' overdue-card':'')+'" style="'+overdueCardBg+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
@@ -2258,9 +2262,14 @@ function render(){
     html+='<div onclick="openModal()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;border:1px dashed var(--border-color);color:var(--text-muted);cursor:pointer;font-size:13px;font-weight:600;margin-top:6px;transition:background 0.15s" onmouseover="this.style.background=\'var(--bg-surface)\'" onmouseout="this.style.background=\'transparent\'"><span style="font-size:18px;line-height:1;font-weight:300">+</span> Add task</div>';
     listEl.innerHTML=html;
   }
-  renderCharts();renderHeatmap();renderCalendar();renderMatrixVisual();setTimeout(attachAllSwipes,60);
+  // Only render analytics widgets when the Stats view is visible — Chart.js
+  // work into hidden zero-size canvases is wasted effort on every render
+  if(currentDashboardView==='analytics'){
+    renderCharts();renderHeatmap();renderCalendar();renderMatrixVisual();
+    renderCompletionRate();renderProductiveInsights();renderCatCompletion();
+  }
+  setTimeout(attachAllSwipes,60);
   const fab=document.getElementById('fab-add');if(fab)fab.classList.toggle('hidden',!uiSettings.showFab);
-  if(currentDashboardView==='analytics'){renderCompletionRate();renderProductiveInsights();renderCatCompletion();}
   updateDailyRing();
 }
 
@@ -2362,7 +2371,7 @@ function showTaskDetail(id){
       const lbl=document.getElementById('dp-completed-lbl');
       const inp=document.getElementById('dp-completed-input');
       if(lbl)lbl.innerText=cd?(cd.getDate()+' '+mo[cd.getMonth()]+' '+cd.getFullYear()):'Unknown';
-      if(inp)inp.value=cd?cd.toISOString().split('T')[0]:'';
+      if(inp)inp.value=cd?toLocalISO(cd):'';
       completedRow.style.display='flex';
     } else {
       completedRow.style.display='none';
@@ -2394,7 +2403,7 @@ function showTaskDetail(id){
       if(s.status==='completed'){
         const ca=s.completedAt;
         const caDate=ca?new Date(ca):null;
-        const caStr=caDate?caDate.toISOString().split('T')[0]:'';
+        const caStr=caDate?toLocalISO(caDate):'';
         const moN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const caLbl=caDate?(caDate.getDate()+' '+moN[caDate.getMonth()]+' '+caDate.getFullYear()):'Unknown';
         const completedRow=document.createElement('div');
@@ -2441,7 +2450,7 @@ function showTaskDetail(id){
 
 const CAT_KEY='donezo_categories';
 const DEFAULT_CATS=[{id:'work',name:'Work',color:'#A3292D'},{id:'personal',name:'Personal',color:'#7c3aed'}];
-function loadCategories(){const raw=localStorage.getItem(CAT_KEY);if(!raw)return [...DEFAULT_CATS];const parsed=JSON.parse(raw);if(!parsed.find(x=>x.id==='work'))parsed.unshift({id:'work',name:'Work',color:'#A3292D'});if(!parsed.find(x=>x.id==='personal'))parsed.push({id:'personal',name:'Personal',color:'#7c3aed'});return parsed;}
+function loadCategories(){const raw=localStorage.getItem(CAT_KEY);if(!raw)return [...DEFAULT_CATS];const parsed=safeParse(raw,null);if(!Array.isArray(parsed))return [...DEFAULT_CATS];if(!parsed.find(x=>x.id==='work'))parsed.unshift({id:'work',name:'Work',color:'#A3292D'});if(!parsed.find(x=>x.id==='personal'))parsed.push({id:'personal',name:'Personal',color:'#7c3aed'});return parsed;}
 function saveCategories(cats){localStorage.setItem(CAT_KEY,JSON.stringify(cats));}
 
 function addCustomCategory(){
@@ -2473,7 +2482,7 @@ function renderCategorySettings(){
   list.innerHTML=cats.map(function(cat){
     return '<div class="cat-item">'
       +'<div class="cat-swatch" style="background:'+cat.color+';border-color:'+cat.color+'"></div>'
-      +'<span class="cat-item-name">'+cat.name+'</span>'
+      +'<span class="cat-item-name">'+esc(cat.name)+'</span>'
       +(cat.id!=='work'&&cat.id!=='personal'?'<button class="cat-del" data-del="'+cat.id+'" title="Delete">&#215;</button>':'')
       +'</div>';
   }).join('');
@@ -2487,7 +2496,7 @@ function refreshCategorySelect(){
   const sel=document.getElementById('f-cat');
   if(!sel)return;
   const cur=sel.value;
-  sel.innerHTML=cats.map(cat=>'<option value="'+cat.id+'">'+cat.name+'</option>').join('');
+  sel.innerHTML=cats.map(cat=>'<option value="'+esc(cat.id)+'">'+esc(cat.name)+'</option>').join('');
   if(cats.find(x=>x.id===cur))sel.value=cur;
 }
 
@@ -2540,7 +2549,7 @@ function openFocusMode(idOrEl){
     stepsEl.style.display='block';
     stepsEl.innerHTML=steps.map(s=>{
       const dot=s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'var(--border-color)';
-      return'<div class="focus-step'+(s.status==='completed'?' done':'')+'"><span class="focus-step-dot" style="background:'+dot+'"></span>'+s.text+'</div>';
+      return'<div class="focus-step'+(s.status==='completed'?' done':'')+'"><span class="focus-step-dot" style="background:'+dot+'"></span>'+esc(s.text)+'</div>';
     }).join('');
   } else {
     stepsEl.style.display='none';
@@ -2605,7 +2614,7 @@ function refreshBlockingSelect(excludeId){
   sel.innerHTML='<option value="">None</option>'+tasks.filter(function(t){
     return t.id!==excludeId&&t.status!=='done';
   }).map(function(t){
-    return '<option value="'+t.id+'"'+(t.id===cur?' selected':'')+'>'+t.name+'</option>';
+    return '<option value="'+t.id+'"'+(t.id===cur?' selected':'')+'>'+esc(t.name)+'</option>';
   }).join('');
 }
 
@@ -2893,23 +2902,44 @@ function toggleDone(id,event){
     t.completedAt=Date.now();
     const incomplete=(t.steps||[]).filter(s=>s.status!=='completed');
     if(incomplete.length){
-      incomplete.forEach(s=>{s.status='completed';s.completedAt=Date.now();});
+      // Flag auto-completed steps so reopening the task can revert them
+      incomplete.forEach(s=>{s.status='completed';s.completedAt=Date.now();s.autoCompleted=true;});
       setTimeout(()=>showToast('Task done — '+incomplete.length+' step'+(incomplete.length>1?'s':'')+' auto-completed'),600);
     }
-  } else {delete t.completedAt;}
+  } else {
+    delete t.completedAt;
+    // Revert steps that were only completed as a side-effect of marking the
+    // task done — manually completed steps keep their status
+    (t.steps||[]).forEach(s=>{
+      if(s.autoCompleted){s.status='not-started';delete s.completedAt;delete s.autoCompleted;}
+    });
+  }
   logHistory(t,t.status==='done'?'Marked done':'Reopened');
   if(!wasDone){onTaskCompleted(t);playDing();haptic('complete');}
   localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
   fbSave(t);
   if(!wasDone&&t.repeat&&t.repeat!=='none'&&t.dueDate){
-    const d=new Date(t.dueDate);
-    if(t.repeat==='daily')d.setDate(d.getDate()+1);
-    else if(t.repeat==='weekly')d.setDate(d.getDate()+7);
-    else if(t.repeat==='monthly')d.setMonth(d.getMonth()+1);
+    // Advance a local date by one repeat interval (avoids UTC day-shift)
+    const advance=function(ds){
+      const d0=parseLocalDate(ds);if(!d0)return '';
+      if(t.repeat==='daily')d0.setDate(d0.getDate()+1);
+      else if(t.repeat==='weekly')d0.setDate(d0.getDate()+7);
+      else if(t.repeat==='monthly')d0.setMonth(d0.getMonth()+1);
+      return toLocalISO(d0);
+    };
+    const nextDue=advance(t.dueDate);
     const next={...t,id:crypto.randomUUID(),status:'todo',manualProgress:0,
-      dueDate:d.toISOString().split('T')[0],
-      steps:(t.steps||[]).map(s=>({...s,status:'not-started'})),
+      dueDate:nextDue,
+      createdAt:Date.now(),completedAt:null,history:[],
+      // Fresh step ids, reset status, and shift each step's own deadline
+      // forward by the same interval so they don't arrive already overdue
+      steps:(t.steps||[]).map(s=>{
+        const ns={...s,id:crypto.randomUUID(),status:'not-started',dueDate:s.dueDate?advance(s.dueDate):''};
+        delete ns.completedAt;delete ns.autoCompleted;
+        return ns;
+      }),
       updatedAt:Date.now()};
+    logHistory(next,'Created (repeat)');
     tasks.push(next);fbSave(next);
     localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));
     showToast('Next occurrence added: '+next.dueDate);
@@ -2965,8 +2995,8 @@ function updateThemeColor(){
   if(meta) meta.setAttribute('content', colour);
 }
 
-function toggleDarkMode(){
-  const isDark=document.body.classList.toggle('dark-mode');
+function setDarkMode(isDark){
+  document.body.classList.toggle('dark-mode',isDark);
   localStorage.setItem('donezo_dark',isDark);
   const moon=document.getElementById('icon-dark'),sun=document.getElementById('icon-light');
   if(moon)moon.style.display=isDark?'none':'block';
@@ -2977,6 +3007,7 @@ function toggleDarkMode(){
   if(tsun)tsun.style.display=isDark?'block':'none';
   updateThemeColor();
 }
+function toggleDarkMode(){setDarkMode(!document.body.classList.contains('dark-mode'));}
 function updateUISetting(key,val){uiSettings[key]=val;localStorage.setItem(UI_KEY,JSON.stringify(uiSettings));render()}
 function changeMonth(offset){currentCalDate.setMonth(currentCalDate.getMonth()+offset);renderCalendar()}
 
@@ -3123,7 +3154,7 @@ function exportBackup(){
       theme:localStorage.getItem('donezo_theme'),
       ui:localStorage.getItem('donezo_ui_v1'),
       notifTime:localStorage.getItem('donezo_notif_time'),
-      noiseType:localStorage.getItem('donezo_noise_type'),
+      noise:localStorage.getItem('donezo_noise'),
       sound:localStorage.getItem('donezo_sound'),
     }
   };
@@ -3131,7 +3162,7 @@ function exportBackup(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download='tracker-backup-'+new Date().toISOString().split('T')[0]+'.json';
+  a.download='tracker-backup-'+toLocalISO(new Date())+'.json';
   a.click();
   URL.revokeObjectURL(url);
   showToast('Backup downloaded');
@@ -3162,17 +3193,31 @@ function importBackup(e){
       // Restore categories
       if(backup.categories) localStorage.setItem(CAT_KEY,JSON.stringify(backup.categories));
 
-      // Restore templates
-      // Restore settings
+      // Restore settings — write to storage AND apply to the live session so
+      // the import takes effect immediately without a reload
       if(backup.settings){
         const s=backup.settings;
-        if(s.dark!=null) localStorage.setItem('donezo_dark',s.dark);
-        if(s.sort) localStorage.setItem('donezo_sort',s.sort);
+        if(s.dark!=null) setDarkMode(s.dark===true||s.dark==='true');
+        if(s.sort){
+          localStorage.setItem('donezo_sort',s.sort);
+          sortMode=s.sort;
+          const ss=document.getElementById('sort-select');if(ss)ss.value=s.sort;
+        }
         if(s.theme) localStorage.setItem('donezo_theme',s.theme);
-        if(s.ui) localStorage.setItem('donezo_ui_v1',s.ui);
+        if(s.ui){
+          localStorage.setItem('donezo_ui_v1',s.ui);
+          uiSettings=safeParse(s.ui,uiSettings);
+          const fabCb=document.getElementById('ui-show-fab');if(fabCb)fabCb.checked=uiSettings.showFab!==false;
+        }
         if(s.notifTime) localStorage.setItem('donezo_notif_time',s.notifTime);
-        if(s.noiseType) localStorage.setItem('donezo_noise_type',s.noiseType);
-        if(s.sound) localStorage.setItem('donezo_sound',s.sound);
+        // 'noise' is the current key; 'noiseType' accepted for older backups
+        const noiseVal=s.noise!=null?s.noise:s.noiseType;
+        if(noiseVal!=null){localStorage.setItem('donezo_noise',noiseVal);_noiseType=noiseVal;}
+        if(s.sound!=null){
+          localStorage.setItem('donezo_sound',s.sound);
+          _soundEnabled=safeParse(s.sound,true);
+          document.querySelectorAll('#btn-sound').forEach(function(btn){btn.innerHTML=_soundEnabled?'&#128276; On':'&#128263; Off';});
+        }
       }
 
       // Push tasks to Firebase
@@ -3208,19 +3253,19 @@ function exportCSV(){
   tasks.forEach(function(t){
     const steps=t.steps||[];
     const doneS=steps.filter(s=>s.status==='completed').length;
-    const completedAt=t.status==='done'&&(t.completedAt||t.updatedAt)?new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0]:'';
+    const completedAt=t.status==='done'&&(t.completedAt||t.updatedAt)?toLocalISO(new Date(t.completedAt||t.updatedAt)):'';
     // Task row
     rows.push(['Task',t.name,'',t.category,t.status,t.priority,t.matrix||'4',t.dueDate||'',completedAt,doneS,steps.length].map(esc).join(','));
     // Step rows
     steps.forEach(function(s){
-      const sCompletedAt=s.status==='completed'&&s.completedAt?new Date(s.completedAt).toISOString().split('T')[0]:'';
+      const sCompletedAt=s.status==='completed'&&s.completedAt?toLocalISO(new Date(s.completedAt)):'';
       rows.push(['Step',t.name,s.text,t.category,s.status,'','',s.dueDate||'',sCompletedAt,'',''].map(esc).join(','));
     });
   });
   const csv=[headers.map(esc).join(','),...rows].join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='tasks-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.download='tasks-'+toLocalISO(new Date())+'.csv';
   a.click();
   showToast('CSV downloaded');
 }
@@ -3423,14 +3468,14 @@ function checkDueNotifications(){
   const savedTime=localStorage.getItem('donezo_notif_time')||'';
   const slots=['10:30','13:00','17:00'];
   if(savedTime&&!slots.includes(savedTime)) slots.push(savedTime);
-  const todaySlotKey='donezo_notif_fired_'+now.toISOString().split('T')[0]+'_'+hhmm;
+  const todaySlotKey='donezo_notif_fired_'+toLocalISO(now)+'_'+hhmm;
   if(!slots.includes(hhmm)) return;
   if(localStorage.getItem(todaySlotKey)) return;
   localStorage.setItem(todaySlotKey,'1');
   // Prune old slot keys (keep only today's) to prevent localStorage bloat
   (function(){
     const prefix='donezo_notif_fired_';
-    const todayPrefix=prefix+now.toISOString().split('T')[0];
+    const todayPrefix=prefix+toLocalISO(now);
     Object.keys(localStorage).forEach(function(k){
       if(k.startsWith(prefix)&&!k.startsWith(todayPrefix)) localStorage.removeItem(k);
     });
@@ -3438,8 +3483,10 @@ function checkDueNotifications(){
 
   const today=new Date();today.setHours(0,0,0,0);
   const active=tasks.filter(function(t){return t.status!=='done';});
-  const overdue=active.filter(function(t){return t.dueDate&&new Date(t.dueDate)<today;});
-  const dueToday=active.filter(function(t){return t.dueDate&&new Date(t.dueDate).toDateString()===today.toDateString();});
+  // parseLocalDate (not new Date(str)) — string dates parse as UTC midnight
+  // and shift a day in negative-UTC timezones
+  const overdue=active.filter(function(t){if(!t.dueDate)return false;const d=parseLocalDate(t.dueDate);return d&&d<today;});
+  const dueToday=active.filter(function(t){if(!t.dueDate)return false;const d=parseLocalDate(t.dueDate);return d&&d.getTime()===today.getTime();});
 
   if(overdue.length>0){
     const names=overdue.slice(0,3).map(function(t){return t.name;}).join(', ')+(overdue.length>3?'...':'');
@@ -3468,7 +3515,7 @@ function checkDueNotifications(){
 function checkStepNotifs(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
   const now=new Date();
-  const todayStr=now.toISOString().split('T')[0];
+  const todayStr=toLocalISO(now);
   const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   const nineAM=hhmm==='09:00';
   tasks.filter(function(t){return t.status!=='done';}).forEach(function(t){
@@ -3501,7 +3548,7 @@ function checkStepNotifs(){
 function checkTimeBlockNotifs(){
   if(!('Notification' in window)||Notification.permission!=='granted') return;
   const now=new Date();
-  const todayStr=now.toISOString().split('T')[0];
+  const todayStr=toLocalISO(now);
   const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   tasks.filter(function(t){
     return t.status!=='done'&&t.dueDate===todayStr&&t.startTime&&t.startTime===hhmm;
@@ -3562,7 +3609,7 @@ function renderHistCalendar(buckets){
     const h=document.createElement('div');h.className='cal-day-name';h.textContent=d;c.appendChild(h);
   });
   const firstDay=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate();
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=toLocalISO(new Date());
   for(let i=0;i<firstDay;i++){
     const e=document.createElement('div');e.className='cal-cell';e.style.opacity='0';e.style.pointerEvents='none';c.appendChild(e);
   }
@@ -3607,8 +3654,8 @@ function showHistDayTasks(ds,items){
     if(item.type==='task'){
       const t=item.task;
       row.className='history-task-item';
-      row.innerHTML='<div class="history-task-name">&#9989; '+t.name+'</div>'
-        +'<div class="history-task-meta">'+t.category+' &bull; '+t.priority+' &bull; '+hhmm+'</div>';
+      row.innerHTML='<div class="history-task-name">&#9989; '+esc(t.name)+'</div>'
+        +'<div class="history-task-meta">'+esc(t.category)+' &bull; '+t.priority+' &bull; '+hhmm+'</div>';
       row.addEventListener('click',function(){
         closeDayView();
         const live=tasks.find(function(x){return x.id===t.id;});
@@ -3618,7 +3665,7 @@ function showHistDayTasks(ds,items){
       const s=item.step,t=item.task;
       row.className='history-step-item';
       row.style.cursor='pointer';
-      row.innerHTML=s.text+' <span style="color:var(--text-muted);font-size:10px">('+t.name+') &bull; '+hhmm+'</span>';
+      row.innerHTML=esc(s.text)+' <span style="color:var(--text-muted);font-size:10px">('+esc(t.name)+') &bull; '+hhmm+'</span>';
       row.addEventListener('click',function(){
         closeDayView();
         const live=tasks.find(function(x){return x.id===t.id;});
@@ -3656,16 +3703,16 @@ function renderHistory(){
   function addToBucket(key,item){if(!buckets[key])buckets[key]=[];buckets[key].push(item);}
 
   tasks.filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
-    const key=new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0];
+    const key=toLocalISO(new Date(t.completedAt||t.updatedAt));
     addToBucket(key,{type:'task',task:t,completedAt:t.completedAt||t.updatedAt});
   });
   loadArch().filter(t=>t.status==='done'&&(t.completedAt||t.updatedAt)&&(_historyTab==='all'||t.category===_historyTab)).forEach(t=>{
-    const key=new Date(t.completedAt||t.updatedAt).toISOString().split('T')[0];
+    const key=toLocalISO(new Date(t.completedAt||t.updatedAt));
     addToBucket(key,{type:'task',task:t,completedAt:t.completedAt||t.updatedAt,archived:true});
   });
   tasks.filter(t=>_historyTab==='all'||t.category===_historyTab).forEach(t=>{
     (t.steps||[]).filter(s=>s.status==='completed'&&s.completedAt).forEach(s=>{
-      const key=new Date(s.completedAt).toISOString().split('T')[0];
+      const key=toLocalISO(new Date(s.completedAt));
       addToBucket(key,{type:'step',step:s,task:t,completedAt:s.completedAt});
     });
   });
@@ -3712,12 +3759,12 @@ function renderHistory(){
     const hhmm=time.getHours().toString().padStart(2,'0')+':'+time.getMinutes().toString().padStart(2,'0');
     if(item.type==='task'){
       return '<div class="history-task-item" data-hist-task="'+t.id+'">'
-        +'<div class="history-task-name">&#9989; '+t.name+(item.archived?'<span style="font-size:9px;color:var(--text-muted);font-weight:700;background:var(--bg-surface);padding:1px 5px;border-radius:4px;margin-left:4px">archived</span>':'')+'</div>'
-        +'<div class="history-task-meta">'+t.category+' &bull; '+t.priority+' &bull; '+hhmm+'</div>'
+        +'<div class="history-task-name">&#9989; '+esc(t.name)+(item.archived?'<span style="font-size:9px;color:var(--text-muted);font-weight:700;background:var(--bg-surface);padding:1px 5px;border-radius:4px;margin-left:4px">archived</span>':'')+'</div>'
+        +'<div class="history-task-meta">'+esc(t.category)+' &bull; '+t.priority+' &bull; '+hhmm+'</div>'
         +'</div>';
     } else {
       const s=item.step;
-      return '<div class="history-step-item" data-hist-task="'+t.id+'" style="cursor:pointer">'+s.text+' <span style="color:var(--text-muted);font-size:10px">('+t.name+') &bull; '+hhmm+'</span></div>';
+      return '<div class="history-step-item" data-hist-task="'+t.id+'" style="cursor:pointer">'+esc(s.text)+' <span style="color:var(--text-muted);font-size:10px">('+esc(t.name)+') &bull; '+hhmm+'</span></div>';
     }
   }
 
@@ -3791,7 +3838,7 @@ function renderArchive(){
     const daysLeft=Math.ceil((t.archivedAt+30*86400000-Date.now())/86400000);
     return '<div class="archive-item">'
       +'<div style="flex:1;min-width:0">'
-      +'<div class="archive-item-name">'+t.name+'</div>'
+      +'<div class="archive-item-name">'+esc(t.name)+'</div>'
       +'<div class="archive-item-meta">Archived '+when+' &bull; '+daysLeft+'d remaining</div>'
       +'</div>'
       +'<button class="restore-btn" data-restore="'+t.id+'">Restore</button>'
@@ -3935,7 +3982,6 @@ document.addEventListener('visibilitychange',function(){
   if(!ring)return;
   function showRingTooltip(){
     const now=new Date();now.setHours(0,0,0,0);
-    const todayStr=now.toISOString().split('T')[0];
     const tomorrow=new Date(now);tomorrow.setDate(now.getDate()+1);
     // Count items (tasks + steps) due today or overdue, completed today
     let total=0,doneTodayCount=0,overdue=0,dueTodayCount=0;

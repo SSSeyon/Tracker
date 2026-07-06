@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tracker",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "G:\\My Drive\\Personal things\\App\\Tracker\\Tracker\\.claude\\serve.ps1"],
+      "port": 8642
+    }
+  ]
+}

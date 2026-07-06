@@ -1,4 +1,4 @@
-const CACHE = 'tracker-v8';
+const CACHE = 'tracker-v9';
 const NOTIF_CACHE = 'tracker-notif-slots'; // separate, version-independent cache for dedup keys
 const OFFLINE_URL = './index.html';
 
@@ -51,27 +51,34 @@ async function runNotifCheck(tasks, reminderTime){
     // Mark as fired immediately to prevent double-fire from rapid SYNC_CHECK calls
     await cache.put('./'+deupKey, new Response('1'));
 
-    const active=tasks.filter(function(t){return t.status!=='done';});
-    const overdue=active.filter(function(t){return t.dueDate&&new Date(t.dueDate+'T00:00:00')<today;});
-    const dueToday=active.filter(function(t){return t.dueDate===todayStr;});
+    try{
+      const active=tasks.filter(function(t){return t.status!=='done';});
+      const overdue=active.filter(function(t){return t.dueDate&&new Date(t.dueDate+'T00:00:00')<today;});
+      const dueToday=active.filter(function(t){return t.dueDate===todayStr;});
 
-    if(overdue.length){
-      const names=overdue.slice(0,3).map(function(t){return t.name;}).join(', ')+(overdue.length>3?'…':'');
-      await self.registration.showNotification(
-        overdue.length+' overdue task'+(overdue.length>1?'s':''),
-        {body:names,tag:'tracker-overdue-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
-      );
-      await broadcastToClients({type:'NOTIF_FIRED', title:overdue.length+' overdue task'+(overdue.length>1?'s':''), body:names, taskId:overdue.length===1?overdue[0].id:null});
-    }
-    if(dueToday.length){
-      const names=dueToday.slice(0,3).map(function(t){return t.name;}).join(', ')+(dueToday.length>3?'…':'');
-      // Slight delay so two notifications don't stack at exactly the same moment
-      await new Promise(function(r){setTimeout(r,overdue.length?1500:0);});
-      await self.registration.showNotification(
-        dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today',
-        {body:names,tag:'tracker-today-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
-      );
-      await broadcastToClients({type:'NOTIF_FIRED', title:dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today', body:names, taskId:dueToday.length===1?dueToday[0].id:null});
+      if(overdue.length){
+        const names=overdue.slice(0,3).map(function(t){return t.name;}).join(', ')+(overdue.length>3?'…':'');
+        await self.registration.showNotification(
+          overdue.length+' overdue task'+(overdue.length>1?'s':''),
+          {body:names,tag:'tracker-overdue-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
+        );
+        await broadcastToClients({type:'NOTIF_FIRED', title:overdue.length+' overdue task'+(overdue.length>1?'s':''), body:names, taskId:overdue.length===1?overdue[0].id:null});
+      }
+      if(dueToday.length){
+        const names=dueToday.slice(0,3).map(function(t){return t.name;}).join(', ')+(dueToday.length>3?'…':'');
+        // Slight delay so two notifications don't stack at exactly the same moment
+        await new Promise(function(r){setTimeout(r,overdue.length?1500:0);});
+        await self.registration.showNotification(
+          dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today',
+          {body:names,tag:'tracker-today-'+todayStr,vibrate:[100,50,100],icon:'./icon-192.png',requireInteraction:false}
+        );
+        await broadcastToClients({type:'NOTIF_FIRED', title:dueToday.length+' task'+(dueToday.length>1?'s':'')+' due today', body:names, taskId:dueToday.length===1?dueToday[0].id:null});
+      }
+    }catch(err){
+      // showNotification failed — release the dedup key so a later check
+      // in the same window can retry instead of burning the slot for the day
+      await cache.delete('./'+deupKey);
+      throw err;
     }
 
     // Only fire one slot per check (the earliest window we find)
