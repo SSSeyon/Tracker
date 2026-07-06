@@ -10,6 +10,13 @@
 /index.html
   Cache-Control: no-cache
 
+# App code & styles — referenced by a static path, so revalidate to avoid
+# serving stale JS/CSS after a deploy
+/app.js
+  Cache-Control: no-cache
+/styles.css
+  Cache-Control: no-cache
+
 # Everything else — cache for a week
 /*
   Cache-Control: public, max-age=604800
