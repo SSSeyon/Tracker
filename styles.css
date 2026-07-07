@@ -3,127 +3,55 @@
 :root{
   --font-weight-label:800;
   --font-weight-body:600;
-  --btn-radius:12px;
-  --tab-radius:9px;
+  --btn-radius:14px;
+  --tab-radius:12px;
   --card-shadow:none;
-  --topbar-border:1px solid var(--border-color);
-  --input-radius:10px;
+  --topbar-border:none;
+  --input-radius:12px;
   --sidebar-font-size:13.5px;
 }
+/* ── Bento palette ── */
 :root{
-  --bg-app:#f7f8fa;--bg-sidebar:#ffffff;--bg-card:#ffffff;--bg-surface:#f7f8fa;
-  --text-main:#0f1923;--text-dim:#4a5568;--text-muted:#9aa5b4;--border-color:#ebebeb;
-  --work-red:#A3292D;--green:#1a5c38;--purple:#7c3aed;--purple-light:#f5f3ff;--red:#e53e3e;
-  --p-high:#e53e3e;--p-med:#dd6b20;--p-low:#3182ce;
+  --bg-app:#eef0f4;--bg-sidebar:#ffffff;--bg-card:#ffffff;--bg-surface:#f2f4f7;
+  --text-main:#1a2233;--text-dim:#4a5568;--text-muted:#8a919e;--border-color:#e6e9ef;
+  --work-red:#e24b4a;--green:#1d9e75;--purple:#378add;--purple-light:#e6f1fb;--red:#e24b4a;
+  --p-high:#e24b4a;--p-med:#ba7517;--p-low:#378add;
   --q1:#ef4444;--q2:#3b82f6;--q3:#f59e0b;--q4:#94a3b8;
-  --radius:14px;--radius-lg:20px;
-  --grad:#000000;
+  --radius:16px;--radius-lg:20px;
+  --grad:#378add;
   --overdue-bg:#F5D6D7;
 }
 body.dark-mode{
-  --bg-app:#0a0b0d;--bg-sidebar:#121417;--bg-card:#1a1d21;--bg-surface:#121417;
-  --text-main:#f7f8fa;--text-dim:#a0aec0;--text-muted:#718096;--border-color:#2d3748;--purple-light:#2d2159;
+  --bg-app:#0f1216;--bg-sidebar:#171b21;--bg-card:#1c2128;--bg-surface:#171b21;
+  --text-main:#f2f4f7;--text-dim:#a8b1bd;--text-muted:#6b7482;--border-color:#262c35;--purple-light:#12283d;
+  --grad:#4d9be3;--purple:#4d9be3;--green:#2cba8e;--p-med:#d99a3d;
   --overdue-bg:#3a1416;
 }
 
-/* ── Themes ── */
-/* Material You */
-body.t-material{
-  --bg-app:#fffbfe;--bg-sidebar:#fffbfe;--bg-card:#ece6f0;--bg-surface:#f3edf7;
-  --text-main:#1c1b1f;--text-dim:#49454f;--text-muted:#79747e;--border-color:#cac4d0;
-  --grad:#6750a4;--purple:#6750a4;--purple-light:#eaddff;
-  --radius:16px;--radius-lg:28px;
-  --btn-radius:50px;--tab-radius:50px;
-  --card-shadow:0 1px 3px rgba(0,0,0,0.08);
-  --topbar-border:none;
-  --font-weight-label:700;--font-weight-body:500;
-  --sidebar-font-size:14px;
-}
-body.t-material.dark-mode{
-  --bg-app:#141218;--bg-sidebar:#1d1b20;--bg-card:#2b2930;--bg-surface:#211f26;
-  --text-main:#e6e0e9;--text-dim:#cac4d0;--text-muted:#938f99;--border-color:#49454f;
-  --purple-light:#2d1f52;
-}
-/* iOS */
-body.t-ios{
-  --bg-app:#f2f2f7;--bg-sidebar:#ffffff;--bg-card:#ffffff;--bg-surface:#f2f2f7;
-  --text-main:#000000;--text-dim:#3c3c43;--text-muted:#8e8e93;--border-color:#e5e5ea;
-  --grad:#007aff;--purple:#007aff;--purple-light:#e5f0ff;
-  --radius:12px;--radius-lg:16px;
-  --green:#34c759;--work-red:#ff3b30;
-  --btn-radius:14px;--tab-radius:10px;
-  --card-shadow:0 1px 0 rgba(0,0,0,0.06);
-  --font-weight-label:700;--font-weight-body:400;
-  --sidebar-font-size:17px;
-}
-body.t-ios .btn-primary{letter-spacing:-0.3px}
-body.t-ios .task-row{border-left:none;border-top:none;border-right:none;border-bottom:1px solid var(--border-color);border-radius:0;margin-bottom:0}
-body.t-ios #task-list{background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border-color)}
-body.t-ios .task-row:hover{background:var(--bg-surface)}
-body.t-ios.dark-mode{
-  --bg-app:#000000;--bg-sidebar:#1c1c1e;--bg-card:#2c2c2e;--bg-surface:#1c1c1e;
-  --text-main:#ffffff;--text-dim:#ebebf5;--text-muted:#636366;--border-color:#38383a;
-  --purple-light:#1a2f4a;
-}
-/* One UI */
-body.t-oneui{
-  --bg-app:#f4f4f4;--bg-sidebar:#ffffff;--bg-card:#ffffff;--bg-surface:#f4f4f4;
-  --text-main:#000000;--text-dim:#3c3c3c;--text-muted:#8c8c8c;--border-color:#e0e0e0;
-  --grad:#1259c3;--purple:#1259c3;--purple-light:#e8effc;
-  --radius:18px;--radius-lg:24px;
-  --green:#00c73c;--work-red:#ff4040;
-  --btn-radius:50px;--tab-radius:50px;
-  --font-weight-label:800;--font-weight-body:700;
-  --card-shadow:0 2px 8px rgba(0,0,0,0.07);
-  --topbar-border:none;
-  --sidebar-font-size:15px;
-}
-body.t-oneui .task-row{border-left:none;border-radius:18px}
-body.t-oneui .task-row.prio-high{background:linear-gradient(135deg,#fff5f5,#fff)}
-body.t-oneui .task-row.prio-medium{background:linear-gradient(135deg,#fffaf0,#fff)}
-body.t-oneui .task-row.prio-low{background:linear-gradient(135deg,#f0f5ff,#fff)}
-body.t-oneui.dark-mode{
-  --bg-app:#000000;--bg-sidebar:#1c1c1c;--bg-card:#2b2b2b;--bg-surface:#1c1c1c;
-  --text-main:#ffffff;--text-dim:#d9d9d9;--text-muted:#888888;--border-color:#3a3a3a;
-  --purple-light:#0d2147;
-}
-/* AMOLED */
-body.t-amoled{
-  --bg-app:#000000;--bg-sidebar:#000000;--bg-card:#0d0d0d;--bg-surface:#0d0d0d;
-  --text-main:#ffffff;--text-dim:#cccccc;--text-muted:#666666;--border-color:#1a1a1a;
-  --grad:#00e676;--purple:#bb86fc;--purple-light:#1a0f2e;
-  --radius:14px;--radius-lg:20px;
-  --green:#00e676;--work-red:#cf6679;
-  --btn-radius:8px;--tab-radius:6px;
-  --font-weight-label:900;--font-weight-body:600;
-  --card-shadow:none;
-  --topbar-border:1px solid #1a1a1a;
-}
-body.t-amoled .btn-primary{text-transform:uppercase;letter-spacing:0.05em;font-size:12px}
-/* Sunset */
-body.t-sunset{
-  --bg-app:#fff8f0;--bg-sidebar:#ffffff;--bg-card:#ffffff;--bg-surface:#fff3e5;
-  --text-main:#1a0a00;--text-dim:#5c3317;--text-muted:#a07050;--border-color:#f0d8c0;
-  --grad:#f97316;--purple:#f97316;--purple-light:#fff0e0;
-  --radius:16px;--radius-lg:24px;
-  --green:#16a34a;--work-red:#dc2626;
-  --btn-radius:50px;--tab-radius:50px;
-  --card-shadow:0 2px 12px rgba(249,115,22,0.08);
-  --topbar-border:1px solid var(--border-color);
-  --font-weight-label:800;--font-weight-body:500;
-}
-body.t-sunset.dark-mode{
-  --bg-app:#1a0e00;--bg-sidebar:#241200;--bg-card:#2e1800;--bg-surface:#241200;
-  --text-main:#fff0e0;--text-dim:#e0c0a0;--text-muted:#a07050;--border-color:#3d2000;
-  --purple-light:#2d1400;
-}
+/* ── Bento dashboard tiles ── */
+.bento-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.bento-tile{background:var(--bg-card);border-radius:16px;padding:14px 16px;cursor:pointer;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;user-select:none;min-width:0}
+.bento-tile:active{transform:scale(0.97)}
+.bento-tile.span3{grid-column:span 3}
+.bento-tile.span2{grid-column:span 2}
+.bento-lbl{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:2px}
+.bento-big{font-size:30px;font-weight:800;line-height:1.15;color:var(--text-main)}
+.bento-sub{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bento-track{height:5px;background:var(--bg-surface);border-radius:3px;overflow:hidden;margin-top:9px}
+.bento-fill{height:100%;background:var(--grad);border-radius:3px;transition:width 0.5s ease}
+.bento-danger{background:var(--red)}
+.bento-danger .bento-lbl,.bento-danger .bento-sub{color:#f7c1c1}
+.bento-danger .bento-big{color:#ffffff}
+.bento-danger .bento-track{background:rgba(0,0,0,0.18)}
+.bento-mini{text-align:center;padding:13px 8px;display:flex;flex-direction:column;justify-content:center}
+.bento-num{font-size:22px;font-weight:800;line-height:1.2}
+.bento-mini-lbl{font-size:10px;font-weight:700;color:var(--text-muted);margin-top:2px;white-space:nowrap}
+.bento-strip{display:flex;background:var(--bg-card);border-radius:16px;margin-bottom:16px;overflow:hidden}
+.bento-strip-cell{flex:1;padding:12px 16px;position:relative;overflow:hidden}
+.bento-strip-cell+.bento-strip-cell{border-left:1px solid var(--bg-app)}
+.bento-strip-cell .stat-lbl{font-size:9px;opacity:0.7;margin-bottom:3px}
+.bento-strip-cell .stat-val{font-size:18px}
 
-/* Theme swatches in settings */
-.theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
-.theme-swatch{border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;border:2px solid transparent;transition:all 0.2s;font-size:11px;font-weight:700}
-.theme-swatch.active{border-color:var(--grad)}
-.theme-swatch-preview{width:100%;height:32px;border-radius:8px;margin-bottom:6px;display:flex;gap:3px;overflow:hidden}
-.theme-swatch-preview span{flex:1;border-radius:4px}
 body.theme-work{--grad:var(--work-red)}
 body.theme-personal{--grad:var(--green)}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-app);color:var(--text-main);height:100vh;display:flex;overflow:hidden;font-size:14px;transition:background 0.3s,color 0.3s;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
@@ -329,7 +257,7 @@ canvas{width:100%!important;max-height:220px}
 .slider:before{position:absolute;content:"";height:12px;width:12px;left:3px;bottom:3px;background-color:white;transition:.3s;border-radius:50%}
 input:checked+.slider{background:var(--purple)}
 input:checked+.slider:before{transform:translateX(16px)}
-#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--text-main);color:var(--bg-sidebar);padding:12px 24px;border-radius:12px;font-weight:700;transition:transform 0.3s;z-index:9000;box-shadow:0 10px 25px rgba(0,0,0,0.15)}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(200px);background:var(--text-main);color:var(--bg-sidebar);padding:12px 24px;border-radius:12px;font-weight:700;transition:transform 0.3s;z-index:9000;box-shadow:0 10px 25px rgba(0,0,0,0.15)}
 #toast.show{transform:translateX(-50%) translateY(0)}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);z-index:6000;display:none;align-items:center;justify-content:center}
 .overlay.open{display:flex}
@@ -343,26 +271,19 @@ input:checked+.slider:before{transform:translateX(16px)}
 .step-item:last-child{border:none}
 .recording{background:var(--red)!important;color:white!important;animation:pulse 1s infinite}
 @keyframes pulse{0%{opacity:1}50%{opacity:0.5}100%{opacity:1}}
-/* -- Dashboard stat cards ------------------------------------------- */
-.dash-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.dash-stat{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:10px 6px;text-align:center;cursor:pointer;transition:transform 0.15s,background 0.15s;-webkit-tap-highlight-color:transparent;user-select:none}
-.dash-stat:hover{background:var(--bg-surface)}
-.dash-stat:active{transform:scale(0.95)}
-.dash-stat-val{font-size:20px;font-weight:800;line-height:1.2}
-.dash-stat-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-top:3px;white-space:nowrap}
-
-/* ── Bottom navigation bar (mobile) ───────────────────────────────── */
+/* ── Bottom navigation bar (mobile) — floating bento pill ─────────── */
 .bottom-nav{
   display:none; /* hidden on desktop */
   position:fixed;bottom:0;left:0;right:0;
-  height:60px;
-  background:var(--bg-sidebar);
-  border-top:1px solid var(--border-color);
+  background:transparent;
   z-index:4900;
-  padding-bottom:env(safe-area-inset-bottom);
+  padding:0 12px calc(10px + env(safe-area-inset-bottom));
 }
 .bottom-nav-inner{
-  display:flex;align-items:stretch;height:100%;
+  display:flex;align-items:stretch;height:60px;
+  background:var(--bg-sidebar);
+  border-radius:22px;
+  box-shadow:0 6px 24px rgba(15,18,22,0.14);
 }
 .bn-tab{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -397,12 +318,12 @@ body.theme-personal .bn-tab.active{color:var(--green)}
   /* Show topbar sync + dark mode on mobile */
   #topbar-sync-badge{display:flex!important}
   #topbar-btn-darkmode{display:flex!important}
-  /* Push all content up so bottom nav doesn't overlap */
-  .content{padding-bottom:72px}
+  /* Push all content up so the floating bottom nav doesn't overlap */
+  .content{padding-bottom:92px}
   /* FAB sits above bottom nav */
-  .fab-add{bottom:72px}
+  .fab-add{bottom:92px}
   /* Toast sits above bottom nav */
-  #toast{bottom:72px}
+  #toast{bottom:92px}
 }
 
 
@@ -545,3 +466,8 @@ body.theme-personal .bn-tab.active{color:var(--green)}
 .cat-del:hover{color:var(--red)}
 #offline-banner{display:none;background:#fff8e6;border-bottom:1px solid #f59e0b;color:#92400e;font-size:12px;font-weight:700;text-align:center;padding:7px 16px}
 body.dark-mode #offline-banner{background:#1c1500;border-color:#92400e;color:#fcd34d}
+
+/* ── Bento flattening: white tiles on a grey canvas, no hairline borders.
+     border-color:transparent (not border:none) keeps layout stable and lets
+     .task-row priority classes still override border-left-color. ── */
+.task-row,.task-card,.chart-box,.settings-group,.streak-card,.daily-goal-card,.weekly-card,.challenge-card,.badge-item,.history-task-item,.archive-item,.template-item,.cat-item,.mode-tabs,.search-box,.view-toggle,.stat-card{border-color:transparent}

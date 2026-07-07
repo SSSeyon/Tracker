@@ -1,4 +1,4 @@
-const APP_VERSION='1.3.0';
+const APP_VERSION='1.4.0';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 // Parse JSON from localStorage without letting corrupt data crash the app
@@ -302,61 +302,11 @@ function checkChallenges(g){
 }
 
 
-// ── Themes ───────────────────────────────────────────────────────────
-const THEMES = [
-  {id:'default', name:'Default',   bg:'#0f1923', card:'#ffffff', accent:'#000000'},
-  {id:'material',name:'Material',  bg:'#fffbfe', card:'#ece6f0', accent:'#6750a4'},
-  {id:'ios',     name:'iOS',       bg:'#f2f2f7', card:'#ffffff', accent:'#007aff'},
-  {id:'oneui',   name:'One UI',    bg:'#f4f4f4', card:'#ffffff', accent:'#1259c3'},
-  {id:'amoled',  name:'AMOLED',    bg:'#000000', card:'#0d0d0d', accent:'#00e676'},
-  {id:'sunset',  name:'Sunset',    bg:'#fff8f0', card:'#ffffff', accent:'#f97316'},
-];
-const THEME_CLASSES = THEMES.map(t=>'t-'+t.id).filter(t=>t!=='t-default');
-const THEME_KEY = 'donezo_theme';
-let _currentTheme = 'default';
-
-function applyTheme(id, save){
-  _currentTheme = id;
-  document.body.classList.remove(...THEME_CLASSES);
-  if(id !== 'default') document.body.classList.add('t-'+id);
-  if(save){
-    localStorage.setItem(THEME_KEY, id);
-    if(fbRef) fbRef.parent.child('meta/theme').set(id).catch(()=>{});
-  }
-  updateThemeColor();
-  renderThemeGrid();
-}
-
-function renderThemeGrid(){
-  const grid = document.getElementById('theme-grid');
-  if(!grid) return;
-  grid.innerHTML = THEMES.map(function(t){
-    const active = _currentTheme === t.id;
-    return '<div class="theme-swatch'+(active?' active':'')+'" data-theme="'+t.id+'">'
-      +'<div class="theme-swatch-preview">'
-      +'<span style="background:'+t.bg+'"></span>'
-      +'<span style="background:'+t.card+'"></span>'
-      +'<span style="background:'+t.accent+'"></span>'
-      +'</div>'
-      +'<div style="color:var(--text-dim)">'+t.name+'</div>'
-      +'</div>';
-  }).join('');
-  grid.querySelectorAll('[data-theme]').forEach(function(el){
-    el.addEventListener('click', function(){ applyTheme(el.dataset.theme, true); });
-  });
-}
-
-function initTheme(){
-  const saved = localStorage.getItem(THEME_KEY) || 'default';
-  applyTheme(saved, false);
-  // Sync theme + sort from Firebase
+// ── Cross-device meta sync (sort preference) ─────────────────────────
+function initMetaSync(){
   if(db){
     db.ref('meta').once('value').then(function(snap){
       const meta=snap.val()||{};
-      if(meta.theme && meta.theme !== saved){
-        applyTheme(meta.theme, false);
-        localStorage.setItem(THEME_KEY, meta.theme);
-      }
       if(meta.sort && meta.sort !== sortMode){
         sortMode=meta.sort;
         localStorage.setItem('donezo_sort',meta.sort);
@@ -1121,6 +1071,23 @@ function render(){
     }).length;
     const set=function(id,v){const e=document.getElementById(id);if(e)e.innerText=v;};
     set('ds-overdue-val',od);set('ds-today-val',dt);set('ds-done-val',doneToday);set('ds-week-val',weekDone);
+    const gam=loadGamify();
+    set('ds-streak-val',gam.currentStreak||0);
+    const gf=document.getElementById('bento-goal-fill');
+    if(gf){
+      const goal=gam.dailyGoal||3;
+      gf.style.width=Math.min(100,Math.round(doneToday/goal*100))+'%';
+      const gl=document.getElementById('bento-goal-lbl');
+      if(gl)gl.innerText=doneToday+' of '+goal+' daily goal done';
+    }
+    // Overdue tile subtitle: first overdue task name + count of the rest
+    (function(){
+      const sub=document.getElementById('ds-overdue-sub');
+      if(!sub)return;
+      const late=inc.filter(function(t){const d=effDue(t);return d&&d<today;});
+      if(!late.length){sub.innerText='All caught up';return;}
+      sub.innerText=late[0].name+(late.length>1?' +'+(late.length-1)+' more':'');
+    })();
   })();
 
   const E=id=>document.getElementById(id);
@@ -1994,17 +1961,8 @@ function closeOverlayBg(e){if(e.target.id==='overlay')closeModal()}
 
 function updateThemeColor(){
   const isDark=document.body.classList.contains('dark-mode');
-  // Pick bg colour based on active theme + dark mode
-  const themeMap={
-    'default':    {light:'#ffffff', dark:'#121417'},
-    't-material': {light:'#fffbfe', dark:'#1d1b20'},
-    't-ios':      {light:'#f2f2f7', dark:'#1c1c1e'},
-    't-oneui':    {light:'#f4f4f4', dark:'#1c1c1c'},
-    't-amoled':   {light:'#000000', dark:'#000000'},
-    't-sunset':   {light:'#fff8f0', dark:'#241200'},
-  };
-  const activeTheme=Array.from(document.body.classList).find(function(cl){return themeMap[cl];})||'default';
-  const colour=themeMap[activeTheme][isDark?'dark':'light'];
+  // Match --bg-app in styles.css so the browser chrome blends with the page
+  const colour=isDark?'#0f1216':'#eef0f4';
   const meta=document.getElementById('theme-color-meta');
   if(meta) meta.setAttribute('content', colour);
 }
@@ -2165,7 +2123,6 @@ function exportBackup(){
     settings:{
       dark:localStorage.getItem('donezo_dark'),
       sort:localStorage.getItem('donezo_sort'),
-      theme:localStorage.getItem('donezo_theme'),
       ui:localStorage.getItem('donezo_ui_v1'),
       notifTime:localStorage.getItem('donezo_notif_time'),
       noise:localStorage.getItem('donezo_noise'),
@@ -2218,7 +2175,6 @@ function importBackup(e){
           sortMode=s.sort;
           const ss=document.getElementById('sort-select');if(ss)ss.value=s.sort;
         }
-        if(s.theme) localStorage.setItem('donezo_theme',s.theme);
         if(s.ui){
           localStorage.setItem('donezo_ui_v1',s.ui);
           uiSettings=safeParse(s.ui,uiSettings);
@@ -2246,7 +2202,6 @@ function importBackup(e){
       }
 
       // Re-apply settings
-      initTheme();
       renderCategorySettings();
       refreshCategorySelect();
       updateXPBar(loadGamify());
@@ -2935,7 +2890,7 @@ initFirebase();
 })();
 (function(){document.querySelectorAll('#btn-sound').forEach(function(btn){btn.innerHTML=_soundEnabled?'&#128276; On':'&#128263; Off';});})();
 renderCategorySettings();
-initTheme();
+initMetaSync();
 updateThemeColor();
 updateNotifBadge();
 updateXPBar(loadGamify());

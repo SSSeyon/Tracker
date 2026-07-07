@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tracker">
-<meta name="theme-color" content="#ffffff" id="theme-color-meta">
-<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)" id="theme-color-dark-meta">
+<meta name="theme-color" content="#eef0f4" id="theme-color-meta">
+<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)" id="theme-color-dark-meta">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000'/><text y='.9em' font-size='72' x='50%' text-anchor='middle'>✓</text></svg>">
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -98,10 +98,66 @@ window.__fbReady = new Promise(resolve => {
     </header>
 
     <div class="content" id="view-dashboard">
-      
+
+      <!-- Bento dashboard header: greeting + glanceable stat tiles -->
+      <div id="dash-header" style="margin:8px 0 18px">
+        <div style="margin-bottom:14px">
+          <div id="dash-greeting" style="font-size:22px;font-weight:800;color:var(--text-main)"></div>
+          <div id="dash-date" style="font-size:12px;font-weight:600;color:var(--text-muted);margin-top:2px"></div>
+        </div>
+        <div class="bento-grid">
+          <div class="bento-tile span3" onclick="scrollToSection('sec-today')" title="Jump to tasks due today">
+            <div class="bento-lbl">Due today</div>
+            <div class="bento-big" id="ds-today-val">0</div>
+            <div class="bento-track"><div class="bento-fill" id="bento-goal-fill" style="width:0%"></div></div>
+            <div class="bento-sub" id="bento-goal-lbl">Daily goal</div>
+          </div>
+          <div class="bento-tile span3 bento-danger" onclick="scrollToSection('sec-overdue')" title="Jump to overdue tasks">
+            <div class="bento-lbl">Overdue</div>
+            <div class="bento-big" id="ds-overdue-val">0</div>
+            <div class="bento-sub" id="ds-overdue-sub"></div>
+          </div>
+          <div class="bento-tile span2 bento-mini" onclick="setView('history')" title="View history">
+            <div class="bento-num" id="ds-done-val" style="color:var(--green)">0</div>
+            <div class="bento-mini-lbl">done today</div>
+          </div>
+          <div class="bento-tile span2 bento-mini" onclick="setView('gamify')" title="View progress">
+            <div class="bento-num" id="ds-streak-val" style="color:var(--p-med)">0</div>
+            <div class="bento-mini-lbl">day streak</div>
+          </div>
+          <div class="bento-tile span2 bento-mini" onclick="setView('gamify')" title="View progress">
+            <div class="bento-num" id="ds-week-val" style="color:var(--purple)">0</div>
+            <div class="bento-mini-lbl">this week</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category totals strip -->
+      <div id="stats-row" class="bento-strip">
+        <div class="bento-strip-cell">
+          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--work-red);transition:width 0.5s ease" id="st-bar-1"></div>
+          <div class="stat-lbl" id="st-lbl-1">Active</div>
+          <div class="stat-val" id="st-val-1">0</div>
+        </div>
+        <div class="bento-strip-cell">
+          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--green);transition:width 0.5s ease" id="st-bar-2"></div>
+          <div class="stat-lbl" id="st-lbl-2">Done</div>
+          <div class="stat-val" id="st-val-2">0</div>
+        </div>
+        <div class="bento-strip-cell">
+          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--purple);transition:width 0.5s ease" id="st-bar-3"></div>
+          <div class="stat-lbl" id="st-lbl-3">Work</div>
+          <div class="stat-val" id="st-val-3">0</div>
+        </div>
+        <div class="bento-strip-cell">
+          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--p-med);transition:width 0.5s ease" id="st-bar-4"></div>
+          <div class="stat-lbl" id="st-lbl-4">Personal</div>
+          <div class="stat-val" id="st-val-4">0</div>
+        </div>
+      </div>
 
       <!-- Toolbar row 1: List/Analytics left · All/Work/Personal right -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin:16px 0 8px;flex-wrap:nowrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 8px;flex-wrap:nowrap">
         <div class="mode-tabs" style="flex-shrink:0">
           <button class="mode-tab active" id="tab-view-list" onclick="setDashboardView('list')" style="padding:7px 14px;font-size:12px">List</button>
           <button class="mode-tab" id="tab-view-analytics" onclick="setDashboardView('analytics')" style="padding:7px 14px;font-size:12px">Stats</button>
@@ -152,54 +208,6 @@ window.__fbReady = new Promise(resolve => {
         </div>
       </div>
 
-      <!-- Stats: single row with coloured progress bars -->
-      <div id="stats-row" style="display:flex;gap:0;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">
-        <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border-color);position:relative;overflow:hidden">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--work-red);transition:width 0.5s ease" id="st-bar-1"></div>
-          <div class="stat-lbl" id="st-lbl-1" style="font-size:9px;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:3px">Active</div>
-          <div class="stat-val" id="st-val-1" style="font-size:18px;font-weight:800">0</div>
-        </div>
-        <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border-color);position:relative;overflow:hidden">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--green);transition:width 0.5s ease" id="st-bar-2"></div>
-          <div class="stat-lbl" id="st-lbl-2" style="font-size:9px;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:3px">Done</div>
-          <div class="stat-val" id="st-val-2" style="font-size:18px;font-weight:800">0</div>
-        </div>
-        <div style="flex:1;padding:10px 14px;border-right:1px solid var(--border-color);position:relative;overflow:hidden">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--purple);transition:width 0.5s ease" id="st-bar-3"></div>
-          <div class="stat-lbl" id="st-lbl-3" style="font-size:9px;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:3px">Work</div>
-          <div class="stat-val" id="st-val-3" style="font-size:18px;font-weight:800">0</div>
-        </div>
-        <div style="flex:1;padding:10px 14px;position:relative;overflow:hidden">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--p-med);transition:width 0.5s ease" id="st-bar-4"></div>
-          <div class="stat-lbl" id="st-lbl-4" style="font-size:9px;font-weight:700;text-transform:uppercase;opacity:0.7;margin-bottom:3px">Personal</div>
-          <div class="stat-val" id="st-val-4" style="font-size:18px;font-weight:800">0</div>
-        </div>
-      </div>
-
-      <div id="dash-header" style="margin-bottom:14px">
-        <div style="margin-bottom:10px">
-          <div id="dash-greeting" style="font-size:18px;font-weight:800;color:var(--text-main)"></div>
-          <div id="dash-date" style="font-size:11.5px;font-weight:600;color:var(--text-muted);margin-top:2px"></div>
-        </div>
-        <div class="dash-stats">
-          <div class="dash-stat" onclick="scrollToSection('sec-overdue')" title="Jump to overdue tasks">
-            <div class="dash-stat-val" id="ds-overdue-val" style="color:var(--red)">0</div>
-            <div class="dash-stat-lbl">Overdue</div>
-          </div>
-          <div class="dash-stat" onclick="scrollToSection('sec-today')" title="Jump to tasks due today">
-            <div class="dash-stat-val" id="ds-today-val" style="color:var(--p-med)">0</div>
-            <div class="dash-stat-lbl">Due today</div>
-          </div>
-          <div class="dash-stat" onclick="setView('history')" title="View history">
-            <div class="dash-stat-val" id="ds-done-val" style="color:var(--green)">0</div>
-            <div class="dash-stat-lbl">Done today</div>
-          </div>
-          <div class="dash-stat" onclick="setView('gamify')" title="View progress">
-            <div class="dash-stat-val" id="ds-week-val" style="color:var(--purple)">0</div>
-            <div class="dash-stat-lbl">This week</div>
-          </div>
-        </div>
-      </div>
       <div id="task-list"></div>
 
       <div class="analytics-section">
