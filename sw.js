@@ -1,4 +1,4 @@
-const CACHE = 'tracker-v11';
+const CACHE = 'tracker-v12';
 const NOTIF_CACHE = 'tracker-notif-slots'; // separate, version-independent cache for dedup keys
 const OFFLINE_URL = './index.html';
 
@@ -19,7 +19,8 @@ async function runNotifCheck(tasks, reminderTime){
   if(!tasks||!tasks.length) return;
   const now=new Date();
   const today=new Date(now);today.setHours(0,0,0,0);
-  const todayStr=today.toISOString().split('T')[0];
+  // Local date, not toISOString() — UTC formatting shifts the date near midnight
+  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
   const nowMins=now.getHours()*60+now.getMinutes();
 
   // Build named slots: fixed + custom reminder
@@ -31,8 +32,8 @@ async function runNotifCheck(tasks, reminderTime){
   if(reminderTime&&reminderTime.match(/^\d{2}:\d{2}$/)){
     const parts=reminderTime.split(':');
     const rMins=parseInt(parts[0])*60+parseInt(parts[1]);
-    // Only add if not already one of the fixed slots
-    if(![600,780,1020].includes(rMins)){
+    // Only add if not already one of the fixed slots (10:30 / 13:00 / 17:00)
+    if(![630,780,1020].includes(rMins)){
       namedSlots.push({name:'slot-custom', hhmm:reminderTime, mins:rMins});
     }
   }
@@ -85,13 +86,36 @@ async function runNotifCheck(tasks, reminderTime){
     break;
   }
 
-  // Prune old dedup keys from previous days to keep cache clean
+  // Prune old dedup keys from previous days to keep cache clean.
+  // Only touch notif_* entries — the task snapshot also lives in this cache.
   const keys=await cache.keys();
   for(const req of keys){
-    if(!req.url.includes(todayStr)){
+    if(req.url.includes('notif_')&&!req.url.includes(todayStr)){
       await cache.delete(req);
     }
   }
+}
+
+// ── Task snapshot persistence ─────────────────────────────────────────────
+// The SW can't read localStorage, so the page pushes its task list here on
+// every save. Stored in NOTIF_CACHE (survives SW upgrades and HARD_RELOAD)
+// so periodicsync can evaluate notifications with ZERO pages open — this is
+// what makes background notifications work when the app is closed.
+const SNAPSHOT_KEY='./task-snapshot';
+async function saveSnapshot(tasks, reminderTime){
+  try{
+    const cache=await caches.open(NOTIF_CACHE);
+    await cache.put(SNAPSHOT_KEY, new Response(JSON.stringify({
+      tasks:tasks, reminderTime:reminderTime||'', savedAt:Date.now()
+    })));
+  }catch(e){}
+}
+async function loadSnapshot(){
+  try{
+    const cache=await caches.open(NOTIF_CACHE);
+    const res=await cache.match(SNAPSHOT_KEY);
+    return res?await res.json():null;
+  }catch(e){ return null; }
 }
 
 // ── Helper: broadcast a message to all open page clients ─────────────────
@@ -113,18 +137,21 @@ function getTasksFromClient(client){
 // ── Periodic Background Sync ─────────────────────────────────────────────
 self.addEventListener('periodicsync', function(e){
   if(e.tag===PBS_TAG){
-    e.waitUntil(
-      clients.matchAll({type:'window',includeUncontrolled:true}).then(async function(list){
-        let tasks=[];
-        let reminderTime='';
-        if(list.length){
-          tasks=await getTasksFromClient(list[0]);
-        }
-        // reminderTime will be empty here if page is closed — that's acceptable,
-        // the fixed slots (10:30/13:00/17:00) still fire correctly
-        if(tasks.length) await runNotifCheck(tasks, reminderTime);
-      })
-    );
+    e.waitUntil((async function(){
+      const list=await clients.matchAll({type:'window',includeUncontrolled:true});
+      let tasks=[];
+      let reminderTime='';
+      if(list.length){
+        tasks=await getTasksFromClient(list[0]);
+      }
+      // Page closed (or didn't answer) — use the persisted snapshot. This is
+      // the path that fires notifications when the app isn't open.
+      if(!tasks.length){
+        const snap=await loadSnapshot();
+        if(snap){ tasks=snap.tasks||[]; reminderTime=snap.reminderTime||''; }
+      }
+      if(tasks.length) await runNotifCheck(tasks, reminderTime);
+    })());
   }
 });
 
@@ -150,9 +177,17 @@ self.addEventListener('message', function(e){
       icon: './icon-192.png',
     });
   }
-  // Page sends tasks + reminderTime for SW to evaluate and fire notifications
+  // Page sends tasks + reminderTime for SW to evaluate and fire notifications;
+  // also persisted as the snapshot used by periodicsync when the page is closed
   if(e.data&&e.data.type==='SYNC_CHECK'&&e.data.tasks){
-    e.waitUntil(runNotifCheck(e.data.tasks, e.data.reminderTime||''));
+    e.waitUntil(Promise.all([
+      saveSnapshot(e.data.tasks, e.data.reminderTime||''),
+      runNotifCheck(e.data.tasks, e.data.reminderTime||'')
+    ]));
+  }
+  // Persist-only update of the snapshot (sent on every task save / page hide)
+  if(e.data&&e.data.type==='TASKS_SNAPSHOT'&&e.data.tasks){
+    e.waitUntil(saveSnapshot(e.data.tasks, e.data.reminderTime||''));
   }
   // Page requesting tasks — SW can't read localStorage so returns empty
   if(e.data&&e.data.type==='GET_TASKS'&&e.ports&&e.ports[0]){

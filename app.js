@@ -1,4 +1,4 @@
-const APP_VERSION='1.4.0';
+const APP_VERSION='1.4.1';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 // Parse JSON from localStorage without letting corrupt data crash the app
@@ -45,6 +45,9 @@ function saveTasksLocal(){
     console.warn('Local storage write failed (quota?):',e);
     if(!_quotaWarned){ _quotaWarned=true; try{showToast('⚠ Local storage full — changes still sync to the cloud');}catch(_){} }
   }
+  // Keep the SW's snapshot fresh so background notification checks (periodic
+  // sync while the app is closed) evaluate against current tasks
+  try{ sendTasksToSW('TASKS_SNAPSHOT'); }catch(_){}
 }
 
 // ── Firebase ─────────────────────────────────────────────────────────
@@ -2531,12 +2534,23 @@ function checkTimeBlockNotifs(){
 
 // Notification loop — checks every minute for time-block notifs + daily reminder
 let _notifTimer=null;
-function sendTasksToSW(){
+function sendTasksToSW(type){
   // Push current task state + reminder time to SW so it can evaluate notifications
-  // even if the page is backgrounded — avoids reliance on setInterval surviving
-  if('serviceWorker' in navigator&&navigator.serviceWorker.controller){
-    const reminderTime=localStorage.getItem('donezo_notif_time')||'';
-    navigator.serviceWorker.controller.postMessage({type:'SYNC_CHECK',tasks:tasks,reminderTime:reminderTime});
+  // even if the page is backgrounded or closed. type 'TASKS_SNAPSHOT' persists
+  // only; default 'SYNC_CHECK' also runs the notification check.
+  if(!('serviceWorker' in navigator)) return;
+  const msg={
+    type:type||'SYNC_CHECK',
+    tasks:tasks,
+    reminderTime:localStorage.getItem('donezo_notif_time')||''
+  };
+  if(navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage(msg);
+  } else {
+    // First load after SW install — no controller yet, message the active SW
+    navigator.serviceWorker.ready.then(function(reg){
+      if(reg.active) reg.active.postMessage(msg);
+    }).catch(function(){});
   }
 }
 
@@ -2906,6 +2920,10 @@ document.addEventListener('visibilitychange',function(){
     // the WebSocket may have dropped and reconnected without triggering render
     forceSync();
     if(Notification.permission==='granted') scheduleNotifLoop();
+  } else {
+    // Page going to background (often the last event before it's killed) —
+    // persist the freshest snapshot for the SW's background checks
+    sendTasksToSW('TASKS_SNAPSHOT');
   }
 });
 
@@ -3018,6 +3036,10 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(e){
     if(e.data && e.data.type === 'NOTIF_FIRED'){
       logNotif(e.data.title, e.data.body, e.data.taskId || null);
+    }
+    // SW asking for the live task list (periodicsync with a page open)
+    if(e.data && e.data.type === 'GET_TASKS' && e.ports && e.ports[0]){
+      e.ports[0].postMessage(tasks);
     }
   });
   navigator.serviceWorker.register('./sw.js')
