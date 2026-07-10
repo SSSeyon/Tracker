@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)" id="theme-color-dark-meta">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000'/><text y='.9em' font-size='72' x='50%' text-anchor='middle'>✓</text></svg>">
 <link rel="manifest" href="manifest.json">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Pinned to an exact version so a breaking Chart.js major release can't silently break Stats. Keep in sync with sw.js PRE_CACHE. -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -54,6 +54,13 @@ window.__fbReady = new Promise(resolve => {
         <span id="xp-label" style="font-size:10px;color:var(--text-muted)">0 / 100 XP</span>
       </div>
       <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar-fill" style="width:0%"></div></div>
+    </div>
+    <div class="sidebar-streak-mini" onclick="setView('gamify');closeSidebarMobile()" title="View progress">
+      <span class="sidebar-streak-mini-icon">🔥</span>
+      <div>
+        <div class="sidebar-streak-mini-lbl">STREAK</div>
+        <div class="sidebar-streak-mini-val" id="sidebar-streak-val">0 days</div>
+      </div>
     </div>
     <div class="sidebar-bottom" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div class="sync-badge" id="sync-badge" onclick="tapSyncBadge()" title="Tap to sync" style="cursor:pointer"><span class="sync-dot" id="sync-dot-el"></span><span id="sync-lbl-el">Connecting…</span></div>
@@ -102,34 +109,33 @@ window.__fbReady = new Promise(resolve => {
       <!-- Bento dashboard header: greeting + glanceable stat tiles -->
       <div id="dash-header" style="margin:8px 0 18px">
         <div style="margin-bottom:14px">
-          <div id="dash-greeting" style="font-size:22px;font-weight:800;color:var(--text-main)"></div>
+          <div id="dash-greeting" style="font-family:var(--font-display);font-size:27px;font-weight:800;letter-spacing:-.5px;color:var(--text-main)"></div>
           <div id="dash-date" style="font-size:12px;font-weight:600;color:var(--text-muted);margin-top:2px"></div>
         </div>
-        <div class="bento-grid">
-          <div class="bento-tile span3" onclick="scrollToSection('sec-today')" title="Jump to tasks due today">
+        <div class="dash-top-row">
+          <div class="bento-tile" onclick="scrollToSection('sec-today')" title="Jump to tasks due today">
             <div class="bento-lbl">Due today</div>
-            <div class="bento-big" id="ds-today-val">0</div>
-            <div class="bento-track"><div class="bento-fill" id="bento-goal-fill" style="width:0%"></div></div>
-            <div class="bento-sub" id="bento-goal-lbl">Daily goal</div>
+            <div class="bento-big" id="ds-today-val" style="color:var(--due-val)">0</div>
           </div>
-          <div class="bento-tile span3 bento-danger" onclick="scrollToSection('sec-overdue')" title="Jump to overdue tasks">
+          <div class="bento-tile bento-danger" onclick="scrollToSection('sec-overdue')" title="Jump to overdue tasks">
             <div class="bento-lbl">Overdue</div>
             <div class="bento-big" id="ds-overdue-val">0</div>
-            <div class="bento-sub" id="ds-overdue-sub"></div>
           </div>
-          <div class="bento-tile span2 bento-mini" onclick="setView('history')" title="View history">
-            <div class="bento-num" id="ds-done-val" style="color:var(--green)">0</div>
-            <div class="bento-mini-lbl">done today</div>
+          <div class="bento-tile" onclick="setView('history')" title="View history">
+            <div class="bento-lbl">Done today</div>
+            <div class="bento-big" id="ds-done-val" style="color:var(--done-val)">0</div>
           </div>
-          <div class="bento-tile span2 bento-mini" onclick="setView('gamify')" title="View progress">
-            <div class="bento-num" id="ds-streak-val" style="color:var(--p-med)">0</div>
-            <div class="bento-mini-lbl">day streak</div>
-          </div>
-          <div class="bento-tile span2 bento-mini" onclick="setView('gamify')" title="View progress">
-            <div class="bento-num" id="ds-week-val" style="color:var(--purple)">0</div>
-            <div class="bento-mini-lbl">this week</div>
+          <div class="bento-hero" onclick="setView('gamify')" title="View progress">
+            <div>
+              <div class="bento-hero-lbl" id="dash-hero-lvl">Daily goal · Level 0</div>
+              <div class="bento-hero-val" id="dash-hero-val">0 / 3 tasks</div>
+              <div class="bento-hero-track"><div class="bento-hero-fill" id="dash-hero-fill" style="width:0%"></div></div>
+            </div>
+            <div class="bento-hero-xp" id="dash-hero-xp">0 XP</div>
           </div>
         </div>
+        <!-- Hidden legacy stat targets kept so existing render() writes don't error -->
+        <div style="display:none"><span id="ds-streak-val"></span><span id="ds-week-val"></span></div>
       </div>
 
       <!-- Category totals strip -->
@@ -306,11 +312,9 @@ window.__fbReady = new Promise(resolve => {
         <div class="gamify-section">
           <div class="gamify-section-title">Streak</div>
           <div class="streak-card">
-            <div class="streak-num" id="g-streak">0</div>
-            <div>
-              <div class="streak-info-title" id="g-streak-title">Day streak</div>
-              <div class="streak-info-sub" id="g-streak-sub">Complete a task today to start your streak</div>
-            </div>
+            <div class="streak-info-title" id="g-streak-title">Current streak</div>
+            <div class="streak-num" id="g-streak">0 days</div>
+            <div class="streak-info-sub" id="g-streak-sub">Complete a task today to start your streak</div>
           </div>
         </div>
 

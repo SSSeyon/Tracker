@@ -1,4 +1,4 @@
-const APP_VERSION='1.5.0';
+const APP_VERSION='1.6.0';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 // Parse JSON from localStorage without letting corrupt data crash the app
@@ -510,12 +510,13 @@ function renderGamify(){
   updateXPBar(g);
 
   // streak
-  document.getElementById('g-streak').innerText=g.currentStreak;
-  const streakTitles=['Start your streak!','Day streak 🔥','Day streak 🔥🔥','Day streak 🔥🔥🔥'];
-  document.getElementById('g-streak-title').innerText=g.currentStreak+' Day Streak';
+  document.getElementById('g-streak').innerText=g.currentStreak+' days';
+  document.getElementById('g-streak-title').innerText='Current streak';
   document.getElementById('g-streak-sub').innerText=g.currentStreak>0
-    ?'Best ever: '+g.bestStreak+' days'
+    ?'Best: '+g.bestStreak+' days'
     :'Complete a task today to start your streak';
+  const sm=document.getElementById('sidebar-streak-val');
+  if(sm) sm.innerText=g.currentStreak+' days';
 
   // daily goal
   const today=toLocalISO(new Date());
@@ -1076,13 +1077,16 @@ function render(){
     set('ds-overdue-val',od);set('ds-today-val',dt);set('ds-done-val',doneToday);set('ds-week-val',weekDone);
     const gam=loadGamify();
     set('ds-streak-val',gam.currentStreak||0);
-    const gf=document.getElementById('bento-goal-fill');
-    if(gf){
-      const goal=gam.dailyGoal||3;
-      gf.style.width=Math.min(100,Math.round(doneToday/goal*100))+'%';
-      const gl=document.getElementById('bento-goal-lbl');
-      if(gl)gl.innerText=doneToday+' of '+goal+' daily goal done';
-    }
+    const sm=document.getElementById('sidebar-streak-val');
+    if(sm) sm.innerText=(gam.currentStreak||0)+' days';
+    // Daily-goal hero tile (blue-purple gradient, matches design's dashboard row)
+    const goal=gam.dailyGoal||3;
+    const heroPct=Math.min(100,Math.round(doneToday/goal*100));
+    const heroFill=document.getElementById('dash-hero-fill');
+    if(heroFill)heroFill.style.width=heroPct+'%';
+    set('dash-hero-val',doneToday+' / '+goal+' tasks');
+    set('dash-hero-lvl','Daily goal · Level '+getLevel(gam.xp));
+    set('dash-hero-xp',(gam.xp||0)+' XP');
     // Overdue tile subtitle: first overdue task name + count of the rest
     (function(){
       const sub=document.getElementById('ds-overdue-sub');
@@ -1196,7 +1200,11 @@ function render(){
       const cardTitle=esc(t.name)+(ndsCard?'<span style="font-size:10px;color:var(--text-muted);font-weight:500"> ('+esc(ndsCard)+')</span>':'')+(isBlocked?' <span style="font-size:9px;font-weight:800;color:var(--red);background:#fff0f0;padding:1px 5px;border-radius:4px;vertical-align:middle">BLOCKED</span>':'');
       const isOverdueCard=overdueIds&&overdueIds.has(t.id);
       const overdueCardBg=isOverdueCard&&!isDone?'background:var(--overdue-bg);':'';
-      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+(isOverdueCard&&!isDone?' overdue-card':'')+'" style="'+overdueCardBg+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" role="button" aria-label="'+(isDone?'Mark task not done':'Mark task done')+'" aria-pressed="'+(isDone?'true':'false')+'" onclick="toggleDone(\''+t.id+'\',event)"></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" aria-label="Delete task" title="Delete" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
+      const priColor=t.priority==='high'?'var(--p-high)':t.priority==='low'?'var(--p-low)':'var(--p-med)';
+      const ringDeg=Math.round(prog*3.6);
+      const ringStyle=isDone?'':'background:conic-gradient('+priColor+' '+ringDeg+'deg,var(--bg-track) 0)';
+      const ringInner=isDone?'✓':Math.round(prog);
+      return '<div class="task-card'+(isDone?' is-done':'')+(isBlocked?' blocked-task':'')+(isOverdueCard&&!isDone?' overdue-card':'')+'" style="'+overdueCardBg+(isBlocked&&!isDone?'opacity:0.6;':'')+'"><div class="tc-stripe" style="background:'+priColor+'"></div><div class="task-card-row"><div class="tc-check'+(isDone?' checked':'')+'" role="button" aria-label="'+(isDone?'Mark task not done':'Mark task done')+'" aria-pressed="'+(isDone?'true':'false')+'" style="'+ringStyle+'" onclick="toggleDone(\''+t.id+'\',event)"><span class="tc-check-inner">'+ringInner+'</span></div><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div></div><button onclick="deleteTask(\''+t.id+'\')" aria-label="Delete task" title="Delete" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;flex-shrink:0">&#215;</button></div>'+progBar+manualSlider+'</div>';
     }
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;

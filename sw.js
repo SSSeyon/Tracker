@@ -1,4 +1,4 @@
-const CACHE = 'tracker-v13';
+const CACHE = 'tracker-v14';
 const NOTIF_CACHE = 'tracker-notif-slots'; // separate, version-independent cache for dedup keys
 const OFFLINE_URL = './index.html';
 
@@ -215,7 +215,7 @@ const PRE_CACHE = [
   './index.html',
   './styles.css',
   './app.js',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@500;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js',
