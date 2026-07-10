@@ -1,4 +1,4 @@
-const APP_VERSION='1.4.1';
+const APP_VERSION='1.5.0';
 const STORAGE_KEY='donezo_v4_store';
 const UI_KEY='donezo_ui_v1';
 // Parse JSON from localStorage without letting corrupt data crash the app

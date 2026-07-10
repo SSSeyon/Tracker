@@ -6,6 +6,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "G:\\My Drive\\Personal things\\App\\Tracker\\Tracker\\.claude\\serve.ps1"],
       "port": 8642
+    },
+    {
+      "name": "investcompass",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "G:\\My Drive\\Personal things\\App\\InvestCompass\\.claude\\serve.ps1"],
+      "port": 8644
     }
   ]
 }
