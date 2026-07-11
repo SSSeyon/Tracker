@@ -831,23 +831,34 @@ function renderTrendBars(){
   }).join('');
 }
 
+// Dashboard month calendar — design cell style (surface bg, number + activity dot,
+// today solid blue). Dots are colored by the highest priority among that day's
+// incomplete due tasks; tapping a day opens its task list in the day overlay.
 function renderCalendar(){
   const c=document.getElementById('calendar-grid');if(!c)return;c.innerHTML='';
   const yr=currentCalDate.getFullYear(),mo=currentCalDate.getMonth();
   const names=["January","February","March","April","May","June","July","August","September","October","November","December"];
-  document.getElementById('cal-month-title').innerText=`${names[mo]} ${yr}`;
-  ['S','M','T','W','T','F','S'].forEach(d=>{c.innerHTML+=`<div class="cal-day-name">${d}</div>`});
+  const titleEl=document.getElementById('cal-month-title');if(titleEl)titleEl.innerText=names[mo]+' '+yr;
+  ['S','M','T','W','T','F','S'].forEach(function(d){const h=document.createElement('div');h.className='cal-day-name';h.textContent=d;c.appendChild(h);});
   const firstDay=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate();
+  const todayStr=toLocalISO(new Date());
   const ct=tasks.filter(t=>currentMode==='all'||t.category===currentMode);
-  for(let i=0;i<firstDay;i++)c.innerHTML+=`<div class="cal-cell" style="opacity:0;pointer-events:none"></div>`;
+  for(let i=0;i<firstDay;i++){const e=document.createElement('div');e.className='hist-cal-cell empty';c.appendChild(e);}
   for(let day=1;day<=dim;day++){
-    const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const dt=ct.filter(t=>t.dueDate===ds);
-    const inc=dt.filter(t=>t.status!=='done').length;
-    const isToday=new Date().toDateString()===new Date(yr,mo,day).toDateString();
-    let col='transparent';
-    if(dt.length){const hi=dt.some(t=>t.priority==='high'&&t.status!=='done');const mi=dt.some(t=>t.priority==='medium'&&t.status!=='done');col=hi?'var(--p-high)':(mi?'var(--p-med)':'var(--p-low)')}
-    c.innerHTML+=`<div class="cal-cell ${isToday?'today':''} ${dt.length?'has-task':''}" onclick="showDayTasks('${ds}')" ${dt.length?`style="border-bottom-color:${col}"`:''}>${day}${inc>0?`<div class="cal-task-count">${inc}</div>`:''}</div>`;
+    const ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const inc=ct.filter(t=>t.dueDate===ds&&t.status!=='done');
+    const isToday=ds===todayStr;
+    const el=document.createElement('div');
+    el.className='hist-cal-cell'+(isToday?' today-hist':'');
+    const n=document.createElement('span');n.textContent=day;el.appendChild(n);
+    if(inc.length){
+      const hi=inc.some(t=>t.priority==='high');const mi=inc.some(t=>t.priority==='medium');
+      const dot=document.createElement('span');dot.className='hist-cal-dot';
+      if(!isToday)dot.style.background=hi?'var(--p-high)':mi?'var(--p-med)':'var(--p-low)';
+      el.appendChild(dot);
+    }
+    el.addEventListener('click',function(){showDayTasks(ds);});
+    c.appendChild(el);
   }
 }
 
@@ -948,24 +959,39 @@ function updateManualProgress(id,val){
   },500);
 }
 
+// Manual progress from the detail sheet slider — updates the sheet's bar/percent
+// live and debounces the persist (same pattern as updateManualProgress).
+function setDetailProgress(val){
+  const t=tasks.find(x=>x.id===detailTaskId);if(!t)return;
+  val=parseInt(val);
+  t.manualProgress=val;t.updatedAt=Date.now();
+  const priColorD=t.priority==='high'?'var(--p-high)':t.priority==='low'?'var(--p-low)':'var(--p-med)';
+  const bar=document.getElementById('dp-prog-bar'),pct=document.getElementById('dp-prog-pct');
+  if(bar){bar.style.width=val+'%';bar.style.background=priColorD;}
+  if(pct)pct.innerText=val+'%';
+  clearTimeout(_mpTimers[t.id]);
+  _mpTimers[t.id]=setTimeout(function(){saveTasksLocal();fbSave(t);},500);
+}
+
 function render(){
   const search=(document.getElementById('search-input')||{}).value?.toLowerCase()||'';
-  const matrixFilter=(document.getElementById('matrix-filter')||{}).value||'all';
   const listEl=document.getElementById('task-list');
   const analyticsEl=document.querySelector('.analytics-section');
+  const calCard=document.getElementById('dash-calendar-card');
   if(currentDashboardView==='analytics'){
     if(listEl)listEl.style.display='none';
     if(analyticsEl){analyticsEl.style.display='block';analyticsEl.style.marginTop='0'}
+    if(calCard)calCard.style.display='none';
   } else {
     if(listEl)listEl.style.display='grid';
     if(analyticsEl)analyticsEl.style.display='none';
+    if(calCard){calCard.style.display='flex';renderCalendar();}
   }
 
   let filtered=tasks.filter(t=>{
     const mOk=currentMode==='all'||t.category===currentMode;
     const sOk=!search||t.name.toLowerCase().includes(search)||(t.dueDate||'').includes(search)||(t.notes||'').toLowerCase().includes(search)||(t.steps||[]).some(s=>s.text&&s.text.toLowerCase().includes(search));
-    const qOk=matrixFilter==='all'||(t.matrix||'4')===matrixFilter;
-    return mOk&&sOk&&qOk;
+    return mOk&&sOk;
   });
 
   const sortFn=(a,b)=>{
@@ -1120,7 +1146,7 @@ function render(){
       const ringDeg=Math.round(prog*3.6);
       const ringStyle=isDone?'':'background:conic-gradient(var(--purple) '+ringDeg+'deg,var(--bg-track) 0)';
       const ringInner=isDone?'✓':Math.round(prog);
-      return '<div class="task-card'+(isDone?' is-done':'')+'"><div class="tc-stripe" style="background:'+priColor+'"></div><div class="task-card-row"><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div>'+stepRow+'</div><div class="tc-check'+(isDone?' checked':'')+'" role="button" aria-label="'+(isDone?'Mark task not done':'Mark task done')+'" aria-pressed="'+(isDone?'true':'false')+'" style="'+ringStyle+'" onclick="toggleDone(\''+t.id+'\',event)"><span class="tc-check-inner">'+ringInner+'</span></div></div></div>';
+      return '<div class="task-card'+(isDone?' is-done':'')+'"><div class="tc-stripe" style="background:'+priColor+'"></div><button class="tc-del" aria-label="Delete task" title="Delete task" onclick="deleteCard(event,\''+t.id+'\')">&#215;</button><div class="task-card-row"><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div>'+stepRow+'</div><div class="tc-check'+(isDone?' checked':'')+'" role="button" aria-label="'+(isDone?'Mark task not done':'Mark task done')+'" aria-pressed="'+(isDone?'true':'false')+'" style="'+ringStyle+'" onclick="toggleDone(\''+t.id+'\',event)"><span class="tc-check-inner">'+ringInner+'</span></div></div></div>';
     }
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;
@@ -1232,6 +1258,12 @@ function showTaskDetail(id){
   if(pctEl)pctEl.innerText=prog+'%';
   const barEl=document.getElementById('dp-prog-bar');
   if(barEl){barEl.style.width=prog+'%';barEl.style.background=priColorD;}
+  // Manual progress slider — only when the task has no checklist steps and isn't done
+  const progSlider=document.getElementById('dp-prog-slider');
+  if(progSlider){
+    if(!steps.length&&!isDone){progSlider.style.display='block';progSlider.value=prog;progSlider.style.accentColor=priColorD;}
+    else{progSlider.style.display='none';}
+  }
 
   // Status toggle button — green "Mark done" / neutral "Reopen task"
   const sbtn=document.getElementById('dp-status-btn');
@@ -1333,6 +1365,22 @@ function showTaskDetail(id){
         metaS.style.cssText='margin-left:auto;font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap';
         metaS.textContent=(s.dueDate||'')+(s.notifTime?' 🔔'+s.notifTime:'');
         el.appendChild(metaS);
+      }
+      // Completed step — editable completion date (wraps onto its own line; clicks kept off the toggle)
+      if(s.status==='completed'){
+        const dateWrap=document.createElement('div');
+        dateWrap.className='dchk-date';
+        dateWrap.addEventListener('click',function(ev){ev.stopPropagation();});
+        const cd=s.completedAt?new Date(s.completedAt):null;
+        const lbl=document.createElement('span');
+        lbl.className='dchk-date-lbl';
+        lbl.textContent='Done '+(cd?(cd.getDate()+' '+mo[cd.getMonth()]+' '+cd.getFullYear()):'—');
+        const inp=document.createElement('input');
+        inp.type='date';inp.className='detail-inline-date';
+        inp.value=cd?toLocalISO(cd):'';
+        inp.addEventListener('change',function(){saveStepCompletedAt(t.id,s.id,this.value,lbl);});
+        dateWrap.appendChild(lbl);dateWrap.appendChild(inp);
+        el.appendChild(dateWrap);
       }
       el.addEventListener('click',function(){toggleDetailStep(t.id,s.id);});
       stepsList.appendChild(el);
@@ -1762,11 +1810,6 @@ function saveCompletedAt(dateStr){
   showToast('Completion date updated');
 }
 function deleteFromDetail(){const id=detailTaskId;closeDetail();deleteTask(id);}
-function onMatrixChange(sel){
-  scheduleRender();
-  const btn=document.getElementById('btn-matrix');
-  if(btn) btn.style.borderColor=sel.value!=='all'?'var(--grad)':'var(--border-color)';
-}
 function onSortChange(sel){
   setSortMode(sel.value);
   const btn=document.getElementById('btn-sort');
@@ -1942,6 +1985,12 @@ function toggleDone(id,event){
   render();
 }
 
+// In-card delete — archives the task (reversible via the undo toast), stops the
+// click from bubbling to the card body (which would open the detail sheet).
+function deleteCard(e,id){
+  if(e){e.stopPropagation();e.preventDefault();}
+  deleteTask(id);
+}
 function deleteTask(id){
   haptic('delete');
   const t=tasks.find(x=>x.id===id);if(!t)return;

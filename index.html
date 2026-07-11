@@ -63,7 +63,7 @@ window.__fbReady = new Promise(resolve => {
         </div>
       </div>
       <div class="quick-actions">
-        <div class="search-box">
+        <div class="search-box" onclick="this.querySelector('input').focus()" title="Search tasks">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3-3"></path></svg>
           <input type="text" id="search-input" placeholder="Search tasks…" oninput="scheduleRender()">
         </div>
@@ -123,13 +123,6 @@ window.__fbReady = new Promise(resolve => {
           <button class="mode-tab" id="tab-personal" onclick="setMode('personal')">Personal</button>
         </div>
         <div class="filter-right">
-          <select id="matrix-filter" class="tool-select" onchange="onMatrixChange(this)">
-            <option value="all">All quadrants</option>
-            <option value="1">Do First</option>
-            <option value="2">Schedule</option>
-            <option value="3">Delegate</option>
-            <option value="4">Eliminate</option>
-          </select>
           <select id="sort-select" class="tool-select" onchange="onSortChange(this)">
             <option value="recent">Sort: Recent</option>
             <option value="due">Sort: Due date</option>
@@ -143,6 +136,16 @@ window.__fbReady = new Promise(resolve => {
       </div>
 
       <div id="task-list"></div>
+
+      <!-- Dashboard month calendar — due-date dots colored by priority; tap a day for its tasks -->
+      <div class="chart-box" id="dash-calendar-card" style="margin-top:14px">
+        <div class="calendar-nav">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)" aria-label="Previous month">&#8249;</button>
+          <span class="calendar-title" id="cal-month-title">Month</span>
+          <button class="cal-nav-btn" onclick="changeMonth(1)" aria-label="Next month">&#8250;</button>
+        </div>
+        <div class="hist-cal-grid" id="calendar-grid"></div>
+      </div>
 
       <!-- Stats view — design structure: metric tiles · heatmap + trend · matrix · category split · completion % -->
       <div class="analytics-section">
@@ -451,6 +454,8 @@ window.__fbReady = new Promise(resolve => {
     <div class="dcard">
       <div class="dp-prog-head"><span>Progress</span><span id="dp-prog-pct">0%</span></div>
       <div class="progress-wrap"><div class="progress-bar" id="dp-prog-bar"></div></div>
+      <!-- Manual progress — only shown for step-less, not-done tasks (checklist steps otherwise drive % automatically) -->
+      <input type="range" id="dp-prog-slider" class="dp-prog-slider" min="0" max="100" step="5" oninput="setDetailProgress(this.value)" aria-label="Set progress" style="display:none">
     </div>
     <div class="dp-actions">
       <button class="dp-status-btn" id="dp-status-btn" onclick="toggleFromDetail()">Mark done</button>
