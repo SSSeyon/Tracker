@@ -8,13 +8,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tracker">
-<meta name="theme-color" content="#eef0f4" id="theme-color-meta">
-<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)" id="theme-color-dark-meta">
+<meta name="theme-color" content="#f5efe6" id="theme-color-meta">
+<meta name="theme-color" content="#1b1712" media="(prefers-color-scheme: dark)" id="theme-color-dark-meta">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000'/><text y='.9em' font-size='72' x='50%' text-anchor='middle'>✓</text></svg>">
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@500;600;700;800&display=swap" rel="stylesheet">
-<!-- Pinned to an exact version so a breaking Chart.js major release can't silently break Stats. Keep in sync with sw.js PRE_CACHE. -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
@@ -34,26 +32,17 @@ window.__fbReady = new Promise(resolve => {
   <aside class="sidebar" id="sidebar">
     <div class="logo">
       <div class="logo-flex">
-        <div class="logo-icon">✓</div>
+        <div class="logo-icon"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.6" fill="none"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg></div>
         <span class="logo-name">Tracker</span>
       </div>
       <div class="close-sidebar-btn" onclick="toggleSidebar()">×</div>
     </div>
-    <div class="sb-section-label">Main</div>
-    <div class="nav-item active" id="nav-all" onclick="setMode('all');closeSidebarMobile()">Dashboard</div>
-    <div class="nav-item" id="nav-work" onclick="setMode('work');closeSidebarMobile()">Work Tasks</div>
-    <div class="nav-item" id="nav-personal" onclick="setMode('personal');closeSidebarMobile()">Personal</div>
-    <div class="sb-section-label">Account</div>
-    <div class="nav-item" id="nav-gamify" onclick="setView('gamify');closeSidebarMobile()">Progress</div>
-    <div class="nav-item" id="nav-history" onclick="setView('history');closeSidebarMobile()">History</div>
-    <div class="nav-item" id="nav-archive" onclick="setView('archive');closeSidebarMobile()">Archive</div>
-    <div class="nav-item" id="nav-settings" onclick="setView('settings');closeSidebarMobile()">Settings</div>
-    <div class="xp-bar-wrap" id="xp-bar-wrap">
-      <div class="xp-bar-header">
-        <span id="xp-level-badge" class="level-badge">Lvl 1</span>
-        <span id="xp-label" style="font-size:10px;color:var(--text-muted)">0 / 100 XP</span>
-      </div>
-      <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar-fill" style="width:0%"></div></div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" id="nav-dashboard" onclick="setView('dashboard');closeSidebarMobile()">Dashboard</div>
+      <div class="nav-item" id="nav-history" onclick="setView('history');closeSidebarMobile()">History</div>
+      <div class="nav-item" id="nav-gamify" onclick="setView('gamify');closeSidebarMobile()">Progress</div>
+      <div class="nav-item" id="nav-archive" onclick="setView('archive');closeSidebarMobile()">Archive</div>
+      <div class="nav-item" id="nav-settings" onclick="setView('settings');closeSidebarMobile()">Settings</div>
     </div>
     <div class="sidebar-streak-mini" onclick="setView('gamify');closeSidebarMobile()" title="View progress">
       <span class="sidebar-streak-mini-icon">🔥</span>
@@ -62,59 +51,47 @@ window.__fbReady = new Promise(resolve => {
         <div class="sidebar-streak-mini-val" id="sidebar-streak-val">0 days</div>
       </div>
     </div>
-    <div class="sidebar-bottom" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div class="sync-badge" id="sync-badge" onclick="tapSyncBadge()" title="Tap to sync" style="cursor:pointer"><span class="sync-dot" id="sync-dot-el"></span><span id="sync-lbl-el">Connecting…</span></div>
-      <div id="app-version-badge" style="font-size:10px;font-weight:700;color:var(--text-muted);opacity:0.6;letter-spacing:0.03em;white-space:nowrap;user-select:none"></div>
-      <button onclick="toggleDarkMode()" id="btn-darkmode" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;color:var(--text-muted);width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;transition:background 0.15s" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='none'">
-        <svg id="icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        <svg id="icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      </button>
-    </div>
   </aside>
 
   <main class="main">
     <div id="offline-banner">&#9888; You're offline — showing cached data</div>
     <header class="topbar">
       <div class="topbar-left">
-        <button id="hamburger-btn" onclick="toggleSidebar()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-main)">☰</button>
-        <div class="search-box">
-          <input type="text" id="search-input" placeholder="Search tasks…" oninput="scheduleRender()">
+        <div style="min-width:0">
+          <div class="hdr-eyebrow" id="hdr-eyebrow"></div>
+          <div class="hdr-title" id="hdr-title">Dashboard</div>
         </div>
       </div>
       <div class="quick-actions">
-        <svg class="daily-ring" id="daily-ring" viewBox="0 0 32 32" title="Today's progress">
-          <circle class="ring-track" cx="16" cy="16" r="12" stroke-width="3"/>
-          <circle class="ring-fill" id="ring-fill" cx="16" cy="16" r="12" stroke-width="3"
-            stroke-dasharray="75.4" stroke-dashoffset="75.4"/>
-          <text id="ring-text" x="16" y="20" text-anchor="middle" font-size="9" font-weight="800" fill="var(--text-muted)">0</text>
-        </svg>
-        <button class="notif-btn" id="btn-notif-bell" onclick="toggleNotifPanel()" title="Notifications">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3-3"></path></svg>
+          <input type="text" id="search-input" placeholder="Search tasks…" oninput="scheduleRender()">
+        </div>
+        <button class="hdr-btn" id="btn-notif-bell" onclick="toggleNotifPanel()" title="Notifications">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg>
           <span class="notif-badge" id="notif-badge"></span>
         </button>
-        <div id="ring-tooltip" style="display:none;position:absolute;top:56px;right:60px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:10px 14px;font-size:11px;font-weight:700;color:var(--text-main);z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.15);white-space:nowrap;min-width:160px"></div>
-
-        <!-- Sync badge and dark mode toggle — shown in topbar on mobile (sidebar hidden) -->
-        <div id="topbar-sync-badge" class="sync-badge" onclick="tapSyncBadge()" title="Tap to sync" style="cursor:pointer;display:none"><span class="sync-dot" id="topbar-sync-dot"></span><span id="topbar-sync-lbl">Connecting…</span></div>
-        <button onclick="toggleDarkMode()" id="topbar-btn-darkmode" title="Toggle dark mode" style="display:none;background:none;border:none;cursor:pointer;color:var(--text-main);width:36px;height:36px;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;transition:background 0.15s">
-          <svg id="topbar-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg id="topbar-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <button class="hdr-btn" id="btn-darkmode" onclick="toggleDarkMode()" title="Toggle dark mode">
+          <svg id="icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8853a" stroke-width="2.4" style="display:none"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8"></path></svg>
+          <svg id="icon-dark" width="20" height="20" viewBox="0 0 24 24" fill="#5b6472" stroke="none"><path d="M20.5 14.5A8.5 8.5 0 1110 3.2 6.8 6.8 0 0020.5 14.5z"></path></svg>
         </button>
-        <button id="btn-install" onclick="installApp()" title="Install app" style="display:none;background:none;border:1px solid var(--border-color);border-radius:8px;width:36px;height:36px;align-items:center;justify-content:center;cursor:pointer;color:var(--text-main);flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button class="btn-primary" onclick="openModal()"><span>New Task</span></button>
+        <button class="hdr-btn hdr-add" onclick="openModal()" title="New task">
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.6" fill="none"><path d="M12 5v14M5 12h14"></path></svg>
+        </button>
       </div>
     </header>
+    <div class="subhead-row">
+      <button class="sync-badge" id="sync-badge" onclick="tapSyncBadge()" title="Tap to sync"><span class="sync-dot" id="sync-dot-el"></span><span id="sync-lbl-el">Connecting…</span></button>
+      <button id="btn-install" onclick="installApp()" style="display:none">⬇ Install app</button>
+    </div>
 
     <div class="content" id="view-dashboard">
 
-      <!-- Bento dashboard header: greeting + glanceable stat tiles -->
-      <div id="dash-header" style="margin:8px 0 18px">
-        <div style="margin-bottom:14px">
-          <div id="dash-greeting" style="font-family:var(--font-display);font-size:27px;font-weight:800;letter-spacing:-.5px;color:var(--text-main)"></div>
-          <div id="dash-date" style="font-size:12px;font-weight:600;color:var(--text-muted);margin-top:2px"></div>
-        </div>
+      <!-- Stat tiles + daily-goal hero (design: flex 1/1/1/2 row) -->
+      <div id="dash-header">
         <div class="dash-top-row">
           <div class="bento-tile" onclick="scrollToSection('sec-today')" title="Jump to tasks due today">
-            <div class="bento-lbl">Due today</div>
+            <div class="bento-lbl">Due Today</div>
             <div class="bento-big" id="ds-today-val" style="color:var(--due-val)">0</div>
           </div>
           <div class="bento-tile bento-danger" onclick="scrollToSection('sec-overdue')" title="Jump to overdue tasks">
@@ -122,7 +99,7 @@ window.__fbReady = new Promise(resolve => {
             <div class="bento-big" id="ds-overdue-val">0</div>
           </div>
           <div class="bento-tile" onclick="setView('history')" title="View history">
-            <div class="bento-lbl">Done today</div>
+            <div class="bento-lbl">Done Today</div>
             <div class="bento-big" id="ds-done-val" style="color:var(--done-val)">0</div>
           </div>
           <div class="bento-hero" onclick="setView('gamify')" title="View progress">
@@ -138,236 +115,176 @@ window.__fbReady = new Promise(resolve => {
         <div style="display:none"><span id="ds-streak-val"></span><span id="ds-week-val"></span></div>
       </div>
 
-      <!-- Category totals strip -->
-      <div id="stats-row" class="bento-strip">
-        <div class="bento-strip-cell">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--work-red);transition:width 0.5s ease" id="st-bar-1"></div>
-          <div class="stat-lbl" id="st-lbl-1">Active</div>
-          <div class="stat-val" id="st-val-1">0</div>
+      <!-- Filter bar — design: category tabs · quadrant + sort selects · List/Stats toggle -->
+      <div class="filter-bar">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tab-all" onclick="setMode('all')">All</button>
+          <button class="mode-tab" id="tab-work" onclick="setMode('work')">Work</button>
+          <button class="mode-tab" id="tab-personal" onclick="setMode('personal')">Personal</button>
         </div>
-        <div class="bento-strip-cell">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--green);transition:width 0.5s ease" id="st-bar-2"></div>
-          <div class="stat-lbl" id="st-lbl-2">Done</div>
-          <div class="stat-val" id="st-val-2">0</div>
-        </div>
-        <div class="bento-strip-cell">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--purple);transition:width 0.5s ease" id="st-bar-3"></div>
-          <div class="stat-lbl" id="st-lbl-3">Work</div>
-          <div class="stat-val" id="st-val-3">0</div>
-        </div>
-        <div class="bento-strip-cell">
-          <div style="position:absolute;bottom:0;left:0;height:3px;background:var(--p-med);transition:width 0.5s ease" id="st-bar-4"></div>
-          <div class="stat-lbl" id="st-lbl-4">Personal</div>
-          <div class="stat-val" id="st-val-4">0</div>
-        </div>
-      </div>
-
-      <!-- Toolbar row 1: List/Analytics left · All/Work/Personal right -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 8px;flex-wrap:nowrap">
-        <div class="mode-tabs" style="flex-shrink:0">
-          <button class="mode-tab active" id="tab-view-list" onclick="setDashboardView('list')" style="padding:7px 14px;font-size:12px">List</button>
-          <button class="mode-tab" id="tab-view-analytics" onclick="setDashboardView('analytics')" style="padding:7px 14px;font-size:12px">Stats</button>
-        </div>
-        <div class="mode-tabs" style="flex-shrink:0">
-          <button class="mode-tab active" id="tab-all" onclick="setMode('all')" style="padding:7px 10px;font-size:12px">All <span id="cnt-all" style="font-size:10px;opacity:0.75"></span></button>
-          <button class="mode-tab" id="tab-work" onclick="setMode('work')" style="padding:7px 10px;font-size:12px">Work <span id="cnt-work" style="font-size:10px;opacity:0.75"></span></button>
-          <button class="mode-tab" id="tab-personal" onclick="setMode('personal')" style="padding:7px 8px;font-size:12px">Personal <span id="cnt-personal" style="font-size:10px;opacity:0.75"></span></button>
-        </div>
-      </div>
-
-      <!-- Toolbar row 2: Matrix + Sort left · View toggle right -->
-      <div id="toolbar-row-2" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <!-- Matrix icon -->
-          <div style="position:relative">
-            <button class="vt-btn" id="btn-matrix" title="Filter by matrix quadrant" style="width:34px;height:34px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-surface)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
-            </button>
-            <select id="matrix-filter" onchange="onMatrixChange(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
-              <option value="all">All quadrants</option>
-              <option value="1">Do First</option>
-              <option value="2">Schedule</option>
-              <option value="3">Delegate</option>
-              <option value="4">Neither</option>
-            </select>
+        <div class="filter-right">
+          <select id="matrix-filter" class="tool-select" onchange="onMatrixChange(this)">
+            <option value="all">All quadrants</option>
+            <option value="1">Do First</option>
+            <option value="2">Schedule</option>
+            <option value="3">Delegate</option>
+            <option value="4">Eliminate</option>
+          </select>
+          <select id="sort-select" class="tool-select" onchange="onSortChange(this)">
+            <option value="recent">Sort: Recent</option>
+            <option value="due">Sort: Due date</option>
+            <option value="priority">Sort: Priority</option>
+          </select>
+          <div class="view-tabs">
+            <button class="view-tab active" id="tab-view-list" onclick="setDashboardView('list')">List</button>
+            <button class="view-tab" id="tab-view-analytics" onclick="setDashboardView('analytics')">Stats</button>
           </div>
-          <!-- Sort icon -->
-          <div style="position:relative">
-            <button class="vt-btn" id="btn-sort" title="Sort tasks" style="width:34px;height:34px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-surface)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
-            </button>
-            <select id="sort-select" onchange="onSortChange(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
-              <option value="recent">Recent</option>
-              <option value="due">Due Date</option>
-              <option value="priority">Priority</option>
-            </select>
-          </div>
-        </div>
-        <!-- View toggle -->
-        <div class="view-toggle">
-          <button class="vt-btn active" id="vt-rows" onclick="setTaskView('rows')" title="Compact rows">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <button class="vt-btn" id="vt-cards" onclick="setTaskView('cards')" title="Detail cards">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          </button>
         </div>
       </div>
 
       <div id="task-list"></div>
 
+      <!-- Stats view — design structure: metric tiles · heatmap + trend · matrix · category split · completion % -->
       <div class="analytics-section">
-        <div class="chart-header">30-Day Activity Heatmap</div>
-        <div id="heatmap-grid" class="heatmap-grid"></div>
-        <div class="charts-container">
-          <div class="chart-box">
-            <div class="calendar-nav">
-              <button class="cal-nav-btn" onclick="changeMonth(-1)">←</button>
-              <div class="calendar-title" id="cal-month-title">Month Year</div>
-              <button class="cal-nav-btn" onclick="changeMonth(1)">→</button>
-            </div>
-            <div id="calendar-grid" class="calendar-grid"></div>
+        <div class="stats-tiles">
+          <div class="pcard"><div class="pc-lbl">Completion Rate</div><div class="pc-big" id="sv-completion" style="color:var(--done-val)">—</div></div>
+          <div class="pcard"><div class="pc-lbl">Most Productive</div><div class="pc-big" id="sv-productive">—</div></div>
+          <div class="pcard"><div class="pc-lbl">Work Done</div><div class="pc-big" id="sv-workdone" style="color:var(--due-val)">—</div></div>
+          <div class="pcard"><div class="pc-lbl">Personal Done</div><div class="pc-big" id="sv-personaldone" style="color:#f4795b">—</div></div>
+        </div>
+        <div class="stats-mid">
+          <div class="pcard" style="flex:1.3">
+            <div class="pc-title">30-day activity</div>
+            <div id="heatmap-grid" class="heatmap-grid"></div>
           </div>
-          <div class="chart-box">
-            <div class="chart-header">Eisenhower Matrix</div>
-            <div id="matrix-visual-grid" class="matrix-visual-grid">
-              <div class="matrix-q-visual q1"><div class="matrix-q-title">Do First</div><div class="matrix-q-list" id="q1-list"></div></div>
-              <div class="matrix-q-visual q2"><div class="matrix-q-title">Schedule</div><div class="matrix-q-list" id="q2-list"></div></div>
-              <div class="matrix-q-visual q3"><div class="matrix-q-title">Delegate</div><div class="matrix-q-list" id="q3-list"></div></div>
-              <div class="matrix-q-visual q4"><div class="matrix-q-title">Eliminate</div><div class="matrix-q-list" id="q4-list"></div></div>
-            </div>
+          <div class="pcard" style="flex:1">
+            <div class="pc-title">Completion trend</div>
+            <div id="trend-bars" class="trend-bars"></div>
           </div>
-          <div class="chart-box"><div class="chart-header" id="cat-chart-header">Category Split</div><canvas id="categoryChart"></canvas></div>
-          <div class="chart-box"><div class="chart-header">Completion Trends</div><canvas id="trendChart"></canvas></div>
-          <div class="chart-box">
-            <div class="chart-header">Completion Rate</div>
-            <div id="completion-rate-box" style="padding:10px 0"></div>
+        </div>
+        <div class="pcard" style="margin-bottom:12px">
+          <div class="pc-title" style="margin-bottom:12px">Eisenhower matrix</div>
+          <div id="matrix-visual-grid" class="matrix-visual-grid">
+            <div class="matrix-q-visual q1"><div class="matrix-q-title">Do First</div><div class="matrix-q-list" id="q1-list"></div></div>
+            <div class="matrix-q-visual q2"><div class="matrix-q-title">Schedule</div><div class="matrix-q-list" id="q2-list"></div></div>
+            <div class="matrix-q-visual q3"><div class="matrix-q-title">Delegate</div><div class="matrix-q-list" id="q3-list"></div></div>
+            <div class="matrix-q-visual q4"><div class="matrix-q-title">Eliminate</div><div class="matrix-q-list" id="q4-list"></div></div>
           </div>
-          <div class="chart-box">
-            <div class="chart-header">Most Productive</div>
-            <div id="productive-box" style="padding:10px 0"></div>
-          </div>
-          <div class="chart-box">
-            <div class="chart-header">Category Completion %</div>
-            <div id="cat-completion-box" style="padding:10px 0"></div>
-          </div>
+        </div>
+        <div class="pcard" style="margin-bottom:12px">
+          <div class="pc-title">Category split</div>
+          <div id="cat-split"></div>
+        </div>
+        <div class="pcard">
+          <div class="pc-title">Category completion %</div>
+          <div id="cat-completion-box" style="display:flex;gap:20px;flex-wrap:wrap"></div>
         </div>
       </div>
     </div>
 
     <div class="content" id="view-settings" style="display:none">
-      <h1 class="page-title">Settings</h1>
-      <div class="settings-group">
-        <div class="chart-header" style="margin-bottom:8px">UI Customisation</div>
-        <div class="settings-item"><div><div class="settings-label">Floating Add Button</div><div class="settings-desc">Persistent + button visible on all pages</div></div><label class="switch"><input type="checkbox" id="ui-show-fab" checked onchange="updateUISetting('showFab',this.checked)"><span class="slider"></span></label></div>
-        <div class="settings-item" style="padding:4px 0"><div><div class="settings-label">Reload App</div><div class="settings-desc">Clears cached files and reloads fresh from the server</div></div><button onclick="hardReload()" class="ai-coach-btn" style="color:var(--text-dim)">Reload</button></div>
-        
-        
-        
-        
-        
-      </div>
-      <div class="settings-group">
-        <div class="chart-header" style="margin-bottom:8px">Data</div>
-        <div class="settings-item" style="padding:4px 0"><div><div class="settings-label">Export to CSV</div><div class="settings-desc">Download all tasks as a spreadsheet</div></div><button onclick="exportCSV()" class="ai-coach-btn" style="color:var(--purple)">Export</button></div>
-        <div class="settings-item" style="padding:4px 0"><div><div class="settings-label">Export backup</div><div class="settings-desc">Download all data as JSON — tasks, archive, settings, progress</div></div><button onclick="exportBackup()" class="ai-coach-btn" style="color:var(--green)">Export</button></div>
-        <div class="settings-item" style="padding:4px 0"><div><div class="settings-label">Import backup</div><div class="settings-desc">Restore from a previously exported JSON file</div></div><button onclick="document.getElementById('import-file').click()" class="ai-coach-btn" style="color:var(--work-red)">Import</button></div>
-        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importBackup(event)">
-      </div>
-      <div class="settings-group">
-        <div class="chart-header" style="margin-bottom:8px">Custom Categories</div>
-        <div id="cats-list" style="margin-bottom:8px"></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="color" id="cat-color-pick" value="#7c3aed" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;padding:2px;background:transparent">
-          <input class="mi" type="text" id="cat-name-input" placeholder="Category name…" style="flex:1;height:36px;padding:0 10px;font-size:13px">
-          <button onclick="addCustomCategory()" class="ai-coach-btn" style="color:var(--purple);height:36px">Add</button>
+      <div class="settings-col">
+        <div class="settings-group">
+          <div class="settings-item"><span class="settings-label">Dark mode</span><label class="switch"><input type="checkbox" id="sw-dark" onchange="toggleDarkMode()"><span class="slider"></span></label></div>
+          <div class="settings-item"><span class="settings-label">Floating add button</span><label class="switch"><input type="checkbox" id="ui-show-fab" checked onchange="updateUISetting('showFab',this.checked)"><span class="slider"></span></label></div>
+          <div class="settings-item"><span class="settings-label">Sounds</span><label class="switch"><input type="checkbox" id="sw-sound" onchange="toggleSound()"><span class="slider"></span></label></div>
+          <div class="settings-item"><span class="settings-label">Notifications</span><label class="switch"><input type="checkbox" id="sw-notif" onchange="onNotifSwitch(this)"><span class="slider"></span></label></div>
+          <div class="settings-item" id="notif-time-row" style="display:none"><span class="settings-label">Daily reminder time</span><input type="time" id="notif-time" class="reminder-input" value="09:00" onchange="saveNotifTime(this.value)"></div>
+          <div class="settings-item" id="notif-note-row" style="display:none"><div class="settings-desc" style="line-height:1.5">Reminders fire reliably while the app is open. When it's closed, they still fire from a saved copy of your tasks — but the browser decides when to run the check (roughly hourly, Chrome/Edge with the app installed to your home screen). Alerts may arrive up to an hour after their slot time, and iOS Safari doesn't run closed-app checks.</div></div>
+        </div>
+
+        <div class="settings-group">
+          <div class="pc-title">Focus soundscape</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="sound-btn" id="nsb-off" onclick="setNoiseTypeBtn('off')">No sound</button>
+            <button class="sound-btn" id="nsb-white" onclick="setNoiseTypeBtn('white')">White noise</button>
+            <button class="sound-btn" id="nsb-brown" onclick="setNoiseTypeBtn('brown')">Brown noise</button>
+            <button class="sound-btn" id="nsb-tick" onclick="setNoiseTypeBtn('tick')">Metronome</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="pc-title">Custom categories</div>
+          <div id="cats-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="mi" type="text" id="cat-name-input" placeholder="e.g. Side project" style="flex:1;padding:9px 12px;font-size:13px;min-width:0">
+            <input type="hidden" id="cat-color-pick" value="#3b6ef2">
+            <button class="swatch active" data-swatch="#3b6ef2" style="background:#3b6ef2" onclick="pickCatColor(this)" aria-label="Blue"></button>
+            <button class="swatch" data-swatch="#f4795b" style="background:#f4795b" onclick="pickCatColor(this)" aria-label="Coral"></button>
+            <button class="swatch" data-swatch="#1d9e75" style="background:#1d9e75" onclick="pickCatColor(this)" aria-label="Green"></button>
+            <button class="swatch" data-swatch="#ba7517" style="background:#ba7517" onclick="pickCatColor(this)" aria-label="Amber"></button>
+            <button onclick="addCustomCategory()" class="ink-btn" style="height:34px">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="pc-title">Data</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="exportCSV()" class="ghost-btn">Export CSV</button>
+            <button onclick="exportBackup()" class="ghost-btn">Backup JSON</button>
+            <button onclick="document.getElementById('import-file').click()" class="ghost-btn">Import backup</button>
+            <button onclick="hardReload()" class="ghost-btn">Reload app</button>
+          </div>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importBackup(event)">
+        </div>
+
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;color:var(--text-muted);padding:4px 4px">
+          <span style="display:inline-flex;align-items:center;gap:6px" onclick="tapSyncBadge()"><span class="sync-dot" id="settings-sync-dot"></span><span id="settings-sync-lbl">Connecting…</span></span>
+          <span id="settings-version-badge"></span>
         </div>
       </div>
-      <div class="settings-group">
-        <div class="chart-header" style="margin-bottom:8px">Appearance</div>
-        
-        <div class="settings-item"><div><div class="settings-label">Sounds</div><div class="settings-desc">Task completion ding and UI feedback</div></div><button id="btn-sound" onclick="toggleSound()" class="ai-coach-btn" id="btn-sound-settings">&#128276; On</button></div>
-        <div class="settings-item"><div><div class="settings-label">Focus Soundscape</div><div class="settings-desc">Sound played during Pomodoro timer</div></div><select id="noise-select" onchange="setNoiseType(this.value)" class="ms" style="font-size:12px"><option value="off">No sound</option><option value="white">White noise</option><option value="brown">Brown noise</option><option value="tick">Metronome tick</option></select></div>
-        <div class="settings-item"><div><div class="settings-label">Dark Mode</div><div class="settings-desc">Switch between light and dark</div></div><button onclick="toggleDarkMode()" class="ai-coach-btn">Toggle</button></div>
-        <div class="settings-item"><div><div class="settings-label">Notifications</div><div class="settings-desc">Due today reminders &amp; overdue alerts</div></div><button onclick="requestNotifPermission()" id="btn-notif" class="ai-coach-btn">Enable</button></div>
-        <div class="settings-item" id="notif-time-row" style="display:none"><div><div class="settings-label">Daily reminder time</div><div class="settings-desc">Get a daily nudge at this time</div></div><input type="time" id="notif-time" class="mi" value="09:00" style="width:100px;height:32px;padding:0 8px;font-size:13px" onchange="saveNotifTime(this.value)"></div>
-        <div class="settings-item" id="notif-note-row" style="display:none"><div><div class="settings-desc" style="line-height:1.5">Reminders fire reliably while the app is open. When it's closed, they still fire from a saved copy of your tasks — but the browser decides when to run the check (roughly hourly, Chrome/Edge with the app installed to your home screen). Alerts may arrive up to an hour after their slot time, and iOS Safari doesn't run closed-app checks.</div></div></div>
-      </div>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 2px 4px;margin-top:4px">
-        <div id="settings-version-badge" style="font-size:11px;font-weight:700;color:var(--text-muted);opacity:0.6;letter-spacing:0.03em;user-select:none"></div>
-        <div class="sync-badge" onclick="tapSyncBadge()" title="Tap to sync" style="cursor:pointer;font-size:11px"><span class="sync-dot" id="settings-sync-dot"></span><span id="settings-sync-lbl">Connecting…</span></div>
-      </div>
-
     </div>
     <div class="content" id="view-archive" style="display:none">
-      <h1 class="page-title">Archive</h1>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Tasks you delete are kept here for 30 days and can be restored any time.</p>
+      <div class="archive-intro">Deleted tasks are kept for 30 days before permanent removal.</div>
       <div id="archive-list"></div>
     </div>
     <div class="content" id="view-gamify" style="display:none">
-      <h1 class="page-title">Progress</h1>
-      <div class="gamify-view" style="padding:0 0 80px">
-
-        <div class="gamify-section">
-          <div class="gamify-section-title">Streak</div>
-          <div class="streak-card">
-            <div class="streak-info-title" id="g-streak-title">Current streak</div>
-            <div class="streak-num" id="g-streak">0 days</div>
-            <div class="streak-info-sub" id="g-streak-sub">Complete a task today to start your streak</div>
-          </div>
+      <div class="prog-top-row">
+        <div class="streak-card">
+          <div class="streak-info-title" id="g-streak-title">Current streak</div>
+          <div class="streak-num" id="g-streak">0 days</div>
+          <div class="streak-info-sub" id="g-streak-sub">Complete a task today to start your streak</div>
         </div>
-
-        <div class="gamify-section">
-          <div class="gamify-section-title">Daily Goal</div>
-          <div class="daily-goal-card">
-            <div class="daily-goal-row">
-              <div class="daily-goal-label" id="g-goal-label">0 / 3 today</div>
-              <div class="daily-goal-count" id="g-goal-pct">0%</div>
-            </div>
-            <div class="goal-track"><div class="goal-fill" id="g-goal-fill" style="width:0%"></div></div>
-            <div class="goal-set-row">
-              <span style="font-size:12px;color:var(--text-muted);font-weight:600">Daily target:</span>
-              <input class="goal-input" type="number" id="g-goal-input" min="1" max="20" value="3" onchange="setDailyGoal(this.value)">
-              <span style="font-size:12px;color:var(--text-muted)">tasks</span>
+        <div class="daily-goal-card">
+          <div class="daily-goal-row">
+            <div class="daily-goal-label">Daily goal</div>
+            <div class="goal-steppers">
+              <button class="step-btn" onclick="adjustDailyGoal(-1)" aria-label="Decrease daily goal">−</button>
+              <button class="step-btn" onclick="adjustDailyGoal(1)" aria-label="Increase daily goal">+</button>
             </div>
           </div>
+          <div class="daily-goal-count" id="g-goal-label">0 / 3 tasks</div>
+          <div class="goal-track"><div class="goal-fill" id="g-goal-fill" style="width:0%"></div></div>
         </div>
+      </div>
 
-        <div class="gamify-section">
-          <div class="gamify-section-title">Challenges</div>
-          <div id="g-challenges"></div>
+      <div class="pcard gamify-section">
+        <div class="pc-title" style="margin-bottom:12px">Weekly summary</div>
+        <div class="weekly-grid">
+          <div class="weekly-stat"><div class="weekly-stat-lbl">Done</div><div class="weekly-stat-val" id="wk-done">0</div></div>
+          <div class="weekly-stat"><div class="weekly-stat-lbl">XP earned</div><div class="weekly-stat-val xp" id="wk-xp">0</div></div>
+          <div class="weekly-stat"><div class="weekly-stat-lbl">Best streak</div><div class="weekly-stat-val" id="wk-streak">0</div></div>
+          <div class="weekly-stat"><div class="weekly-stat-lbl">Best day</div><div class="weekly-stat-val" id="wk-best">—</div></div>
         </div>
+        <div class="week-day-bar" id="wk-bars"></div>
+        <div class="week-day-labels" id="wk-labels"></div>
+      </div>
 
-        <div class="gamify-section">
-          <div class="gamify-section-title">Weekly Summary</div>
-          <div class="weekly-card">
-            <div class="weekly-grid">
-              <div class="weekly-stat"><div class="weekly-stat-val" id="wk-done">0</div><div class="weekly-stat-lbl">Done</div></div>
-              <div class="weekly-stat"><div class="weekly-stat-val" id="wk-xp">0</div><div class="weekly-stat-lbl">XP earned</div></div>
-              <div class="weekly-stat"><div class="weekly-stat-val" id="wk-streak">0</div><div class="weekly-stat-lbl">Best streak</div></div>
-              <div class="weekly-stat"><div class="weekly-stat-val" id="wk-best">—</div><div class="weekly-stat-lbl">Best day</div></div>
-            </div>
-            <div class="week-day-bar" id="wk-bars"></div>
-            <div class="week-day-labels" id="wk-labels"></div>
-          </div>
-        </div>
+      <div class="pcard gamify-section">
+        <div class="pc-title" style="margin-bottom:12px">Active challenges</div>
+        <div id="g-challenges"></div>
+      </div>
 
-        <div class="gamify-section">
-          <div class="gamify-section-title">Badges</div>
-          <div class="badge-grid" id="g-badges"></div>
-        </div>
-
+      <div class="pcard gamify-section">
+        <div class="pc-title" style="margin-bottom:12px">Badges</div>
+        <div class="badge-grid" id="g-badges"></div>
       </div>
     </div>
     <div class="content" id="view-history" style="display:none">
-      <h1 class="page-title">History</h1>
-      <div style="margin-bottom:12px">
-        <div style="display:flex;gap:4px;background:var(--bg-sidebar);border:1px solid var(--border-color);border-radius:12px;padding:4px;width:fit-content">
-          <button class="mode-tab active" id="hist-tab-all" onclick="setHistoryTab('all')">All</button>
-          <button class="mode-tab" id="hist-tab-work" onclick="setHistoryTab('work')">Work</button>
-          <button class="mode-tab" id="hist-tab-personal" onclick="setHistoryTab('personal')">Personal</button>
-        </div>
+      <div class="mode-tabs" style="margin-bottom:16px">
+        <button class="mode-tab active" id="hist-tab-all" onclick="setHistoryTab('all')">All</button>
+        <button class="mode-tab" id="hist-tab-work" onclick="setHistoryTab('work')">Work</button>
+        <button class="mode-tab" id="hist-tab-personal" onclick="setHistoryTab('personal')">Personal</button>
       </div>
       <div class="chart-box" style="margin-bottom:16px">
         <div class="calendar-nav">
@@ -375,10 +292,10 @@ window.__fbReady = new Promise(resolve => {
           <div class="calendar-title" id="hist-cal-title">Month Year</div>
           <button class="cal-nav-btn" onclick="changeHistMonth(1)">→</button>
         </div>
-        <div class="calendar-grid" id="hist-cal-grid"></div>
+        <div class="hist-cal-grid" id="hist-cal-grid"></div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-        <button onclick="toggleAllHistGroups()" id="hist-collapse-all-btn" style="font-size:11px;font-weight:700;color:var(--text-muted);background:none;border:1px solid var(--border-color);border-radius:8px;padding:5px 10px;cursor:pointer;font-family:inherit">Collapse all</button>
+        <button onclick="toggleAllHistGroups()" id="hist-collapse-all-btn" class="collapse-all-btn">Collapse all</button>
       </div>
       <div id="history-list"></div>
     </div>
@@ -394,69 +311,101 @@ window.__fbReady = new Promise(resolve => {
   <div class="notif-list" id="notif-list"></div>
 </div>
 
-<!-- FOCUS MODE -->
-<div class="focus-overlay" id="focus-overlay" onclick="closeFocusBg(event)">
-  <div class="focus-panel">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;letter-spacing:0.1em">&#x1F3AF; Focus Mode</div>
-    <div class="focus-task-name" id="focus-task-name"></div>
-    <div class="focus-task-meta" id="focus-task-meta"></div>
-    <div class="focus-timer" id="focus-timer">25:00</div>
-    <div class="focus-timer-label" id="focus-timer-label">Pomodoro timer</div>
-    <div class="focus-steps" id="focus-steps" style="display:none"></div>
-    <div class="focus-actions">
-      <button class="focus-btn secondary" onclick="closeFocusMode()">Exit</button>
-      <button class="focus-btn primary" id="focus-start-btn" onclick="toggleFocusTimer()">Start Timer</button>
-      <button class="focus-btn done-btn" onclick="completeFocusTask()">Mark Done ✓</button>
+<!-- FOCUS MODE — design: full-screen app-bg overlay with 240/210 timer ring -->
+<div class="focus-overlay" id="focus-overlay">
+  <button class="focus-close" onclick="closeFocusMode()" title="Exit focus">✕</button>
+  <div class="focus-eyebrow">Focus Session</div>
+  <div class="focus-task-name" id="focus-task-name"></div>
+  <div class="focus-task-meta" id="focus-task-meta"></div>
+  <div class="focus-ring" id="focus-ring">
+    <div class="focus-ring-inner">
+      <span class="focus-timer" id="focus-timer">25:00</span>
+      <span class="focus-timer-label" id="focus-timer-label">Pomodoro timer</span>
     </div>
   </div>
+  <div class="focus-actions">
+    <button class="focus-btn secondary" onclick="closeFocusMode()">Exit</button>
+    <button class="focus-btn primary" id="focus-start-btn" onclick="toggleFocusTimer()">Start timer</button>
+    <button class="focus-btn done-btn" onclick="completeFocusTask()">Mark done</button>
+  </div>
+  <div class="focus-sounds">
+    <button class="sound-btn" id="fsb-off" onclick="setNoiseTypeBtn('off')">No sound</button>
+    <button class="sound-btn" id="fsb-white" onclick="setNoiseTypeBtn('white')">White noise</button>
+    <button class="sound-btn" id="fsb-brown" onclick="setNoiseTypeBtn('brown')">Brown noise</button>
+    <button class="sound-btn" id="fsb-tick" onclick="setNoiseTypeBtn('tick')">Metronome</button>
+  </div>
+  <div class="focus-steps" id="focus-steps" style="display:none"></div>
 </div>
 
-<!-- TASK MODAL -->
+<!-- TASK MODAL — design: 520px card, segmented pickers, coral save -->
 <div class="overlay" id="overlay" onclick="closeOverlayBg(event)">
   <div class="modal">
-    <h2 id="modal-ttl" style="margin-bottom:20px">New Task</h2>
-    <div class="mf">
-      <label class="ml">Task Title</label>
-      <div style="display:flex;gap:8px">
-        <input class="mi" id="f-name" type="text" placeholder="e.g. Plan marketing campaign…" autocomplete="off">
-      </div>
-      <div id="task-autocomplete" style="display:none;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-card);box-shadow:0 4px 16px rgba(0,0,0,0.1);overflow:hidden;margin-top:4px;max-height:200px;overflow-y:auto"></div>
-    </div>
-    <div class="mf-row">
-      <div><label class="ml">Category</label><select class="ms" id="f-cat"><option value="work">Work</option><option value="personal">Personal</option></select></div>
-      <div><label class="ml">Priority</label><select class="ms" id="f-priority"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+    <div class="modal-head">
+      <h2 id="modal-ttl">New task</h2>
+      <button class="modal-x" onclick="closeModal()" title="Close">✕</button>
     </div>
     <div class="mf">
-      <label class="ml">Eisenhower Matrix</label>
-      <select class="ms" id="f-matrix">
-        <option value="1">Urgent & Important — Do First</option>
-        <option value="2" selected>Important, Not Urgent — Schedule</option>
-        <option value="3">Urgent, Not Important — Delegate</option>
-        <option value="4">Neither — Eliminate</option>
-      </select>
+      <label class="ml">Task name</label>
+      <input class="mi" id="f-name" type="text" placeholder="e.g. Finish Q3 board deck" autocomplete="off">
+      <div id="task-autocomplete" style="display:none;border:1.5px solid var(--border-color);border-radius:10px;background:var(--bg-card);box-shadow:0 4px 16px rgba(0,0,0,0.1);overflow:hidden;margin-top:4px;max-height:200px;overflow-y:auto"></div>
+    </div>
+    <!-- Hidden selects hold the form state; the button groups below drive them -->
+    <select id="f-cat" style="display:none"><option value="work">Work</option><option value="personal">Personal</option></select>
+    <select id="f-priority" style="display:none"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+    <select id="f-status" style="display:none"><option value="todo">To do</option><option value="done">Done</option></select>
+    <select id="f-matrix" style="display:none"><option value="1">Do First</option><option value="2" selected>Schedule</option><option value="3">Delegate</option><option value="4">Eliminate</option></select>
+    <select id="f-repeat" style="display:none"><option value="none">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
+
+    <div class="mf">
+      <label class="ml">Category</label>
+      <div class="seg-group" id="seg-cat"></div>
     </div>
     <div class="mf-row">
       <div>
-        <label class="ml">Deadline</label>
-        <input class="mi" type="date" id="f-due" oninput="syncQuickPick()">
-        <div class="date-quick-btns">
-          <button type="button" class="date-qbtn" onclick="setQuickDate(0)">Today</button>
-          <button type="button" class="date-qbtn" onclick="setQuickDate(1)">Tomorrow</button>
-          <button type="button" class="date-qbtn" onclick="setQuickDate(7)">This week</button>
-          <button type="button" class="date-qbtn" onclick="setQuickDate(14)">Next week</button>
-          <button type="button" class="date-qbtn" onclick="setQuickDate(-1)">Clear</button>
+        <label class="ml">Priority</label>
+        <div class="seg-group" id="seg-priority">
+          <button class="seg-btn" data-val="low" onclick="segSet('f-priority','low')">Low</button>
+          <button class="seg-btn" data-val="medium" onclick="segSet('f-priority','medium')">Med</button>
+          <button class="seg-btn" data-val="high" onclick="segSet('f-priority','high')">High</button>
         </div>
       </div>
-      <div><label class="ml">Status</label><select class="ms" id="f-status"><option value="todo">To Do</option><option value="done">Done</option></select></div>
+      <div>
+        <label class="ml">Status</label>
+        <div class="seg-group" id="seg-status">
+          <button class="seg-btn" data-val="todo" onclick="segSet('f-status','todo')">To do</button>
+          <button class="seg-btn" data-val="done" onclick="segSet('f-status','done')">Done</button>
+        </div>
+      </div>
+    </div>
+    <div class="mf" id="f-blocking-wrap">
+      <label class="ml">Blocks task (optional)</label>
+      <select class="ms" id="f-blocking">
+        <option value="">None</option>
+      </select>
     </div>
     <div class="mf">
-      <label class="ml">Checklist Steps</label>
-      <div id="steps-list" class="steps-container"></div>
-      <button class="btn-primary" style="width:100%;justify-content:center;margin-top:10px;background:var(--bg-app);color:var(--text-dim);font-family:inherit" onclick="addStep()">+ Add Step</button>
+      <label class="ml">Matrix quadrant</label>
+      <div class="quad-grid" id="quad-grid">
+        <button class="quad-btn q1" data-val="1" onclick="segSet('f-matrix','1')">Do First</button>
+        <button class="quad-btn q2" data-val="2" onclick="segSet('f-matrix','2')">Schedule</button>
+        <button class="quad-btn q3" data-val="3" onclick="segSet('f-matrix','3')">Delegate</button>
+        <button class="quad-btn q4" data-val="4" onclick="segSet('f-matrix','4')">Eliminate</button>
+      </div>
     </div>
-    <div class="mf-row">
-      <div><label class="ml">Start Time</label><input class="mi" type="time" id="f-start-time"></div>
-      <div>
+    <div class="mf">
+      <label class="ml">Due date</label>
+      <input class="mi" type="date" id="f-due" oninput="syncQuickPick()">
+      <div class="date-quick-btns">
+        <button type="button" class="date-qbtn" onclick="setQuickDate(0)">Today</button>
+        <button type="button" class="date-qbtn" onclick="setQuickDate(1)">Tomorrow</button>
+        <button type="button" class="date-qbtn" onclick="setQuickDate(7)">This week</button>
+        <button type="button" class="date-qbtn" onclick="setQuickDate(14)">Next week</button>
+        <button type="button" class="date-qbtn" onclick="setQuickDate(-1)">Clear</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:16px">
+      <div style="flex:1"><label class="ml">Start time</label><input class="mi" type="time" id="f-start-time"></div>
+      <div style="flex:1">
         <label class="ml">Duration</label>
         <select class="ms" id="f-duration">
           <option value="">None</option>
@@ -468,62 +417,66 @@ window.__fbReady = new Promise(resolve => {
           <option value="120">2 hours</option>
         </select>
       </div>
+      <div style="flex:1">
+        <label class="ml">Repeat</label>
+        <div class="seg-group" id="seg-repeat" style="gap:4px;flex-wrap:nowrap">
+          <button class="rep-btn" data-val="none" onclick="segSet('f-repeat','none')" title="No repeat">—</button>
+          <button class="rep-btn" data-val="daily" onclick="segSet('f-repeat','daily')" title="Daily">D</button>
+          <button class="rep-btn" data-val="weekly" onclick="segSet('f-repeat','weekly')" title="Weekly">W</button>
+          <button class="rep-btn" data-val="monthly" onclick="segSet('f-repeat','monthly')" title="Monthly">M</button>
+        </div>
+      </div>
     </div>
-    <div class="mf" id="f-blocking-wrap">
-      <label class="ml">Blocks task (optional)</label>
-      <select class="ms" id="f-blocking">
-        <option value="">None</option>
-      </select>
+    <div class="mf">
+      <label class="ml">Checklist steps</label>
+      <div id="steps-list" class="steps-container"></div>
+      <button class="dashed-btn" style="width:100%" onclick="addStep()">+ Add step</button>
     </div>
-    <div class="mf-row">
-      <div><label class="ml">Repeat</label><select class="ms" id="f-repeat"><option value="none">No repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
-      <div></div>
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px">
-      <button onclick="closeModal()" style="background:none;border:none;cursor:pointer;font-weight:700;color:var(--text-muted);font-family:inherit">Cancel</button>
-      <button class="btn-primary" onclick="saveTask()">Save Task</button>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+      <button class="save-btn" onclick="saveTask()">Save task</button>
     </div>
   </div>
 </div>
 
-<!-- TASK DETAIL PANEL -->
+<!-- TASK DETAIL PANEL — design: bottom sheet with badge row, action row, card sections -->
 <div class="detail-overlay" id="detail-overlay" onclick="closeDetailBg(event)">
   <div class="detail-panel">
     <div class="detail-handle"></div>
     <div class="detail-header">
       <div class="detail-title" id="dp-title" onclick="startTitleEdit()" style="cursor:pointer" title="Tap to rename"></div>
-      <button class="detail-close" onclick="closeDetail()">&#215;</button>
+      <button class="detail-close" onclick="closeDetail()">✕</button>
     </div>
-    <div class="detail-body">
-      <div class="detail-row"><span class="detail-lbl">Status</span><span class="detail-val" id="dp-status"></span></div>
-      <div class="detail-row"><span class="detail-lbl">Priority</span><span class="detail-val" id="dp-priority"></span></div>
-      <div class="detail-row"><span class="detail-lbl">Category</span><span class="detail-val" id="dp-category"></span></div>
-      <div class="detail-row"><span class="detail-lbl">Matrix</span><span class="detail-val" id="dp-matrix"></span></div>
-      <div class="detail-row" id="dp-due-row"><span class="detail-lbl">Due</span><span class="detail-val" id="dp-due" style="display:flex;align-items:center;gap:8px"><span id="dp-due-lbl"></span><input type="date" id="dp-due-input" style="border:none;border-bottom:1px solid var(--border-color);background:transparent;color:var(--text-dim);font-size:12px;font-weight:600;font-family:inherit;padding:1px 2px;cursor:pointer;width:130px" onchange="saveDueDate(this.value)"></span></div>
-      <div class="detail-row" id="dp-progress-row"><span class="detail-lbl">Progress</span><span class="detail-val" id="dp-progress"></span></div>
-      <div class="detail-row" id="dp-created-row" style="display:none"><span class="detail-lbl">Created</span><span class="detail-val" id="dp-created"></span></div>
-      <div class="detail-row" id="dp-completed-row" style="display:none"><span class="detail-lbl">Completed</span><span class="detail-val" id="dp-completed" style="display:flex;align-items:center;gap:8px"><span id="dp-completed-lbl"></span><input type="date" id="dp-completed-input" style="border:none;border-bottom:1px solid var(--border-color);background:transparent;color:var(--text-dim);font-size:12px;font-weight:600;font-family:inherit;padding:1px 2px;cursor:pointer;width:130px" onchange="saveCompletedAt(this.value)"></span></div>
-      <div class="detail-row" id="dp-time-row" style="display:none"><span class="detail-lbl">Time</span><span class="detail-val" id="dp-time"></span></div>
-      <div class="detail-row" id="dp-blocks-row" style="display:none"><span class="detail-lbl">Blocks</span><span class="detail-val" id="dp-blocks"></span></div>
-      <div class="detail-row" id="dp-blocked-by-row" style="display:none"><span class="detail-lbl">Blocked by</span><span class="detail-val" id="dp-blocked-by"></span></div>
-      <div class="detail-row" id="dp-repeat-row" style="display:none"><span class="detail-lbl">Repeats</span><span class="detail-val" id="dp-repeat"></span></div>
-    </div>
-    <div id="dp-steps" class="detail-steps" style="padding:0 22px;display:none" id="dp-steps">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Checklist</div>
-      <div id="dp-steps-list"></div>
-    </div>
-    <div class="detail-prog-wrap" id="dp-prog-bar-wrap" style="display:none">
-      <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:800;color:var(--text-muted);text-transform:uppercase;margin-bottom:5px"><span>Completion</span><span id="dp-prog-pct"></span></div>
+    <div class="dp-badges" id="dp-badges"></div>
+    <div class="dcard">
+      <div class="dp-prog-head"><span>Progress</span><span id="dp-prog-pct">0%</span></div>
       <div class="progress-wrap"><div class="progress-bar" id="dp-prog-bar"></div></div>
     </div>
-    <div id="dp-history" style="padding:0 22px 10px;display:none">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">History</div>
-      <div id="dp-history-list"></div>
+    <div class="dp-actions">
+      <button class="dp-status-btn" id="dp-status-btn" onclick="toggleFromDetail()">Mark done</button>
+      <button class="dp-focus-btn" onclick="focusFromDetail()">Focus</button>
+      <button class="dp-ghost" id="dp-edit-btn" onclick="editFromDetail()">Edit</button>
+      <button class="dp-ghost" onclick="shareFromDetail()">Share</button>
+      <button class="dp-del" id="dp-del-btn" onclick="deleteFromDetail()">Delete</button>
     </div>
-    <div class="detail-footer">
-      <button class="detail-edit-btn" id="dp-edit-btn" onclick="editFromDetail()">Edit Task</button>
-      <button class="detail-del-btn" onclick="shareFromDetail()" style="color:var(--purple);border-color:var(--purple)" title="Share task"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="currentColor" stroke-width="2"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="detail-del-btn" id="dp-del-btn" onclick="deleteFromDetail()">Delete</button>
+    <div class="dcard" id="dp-steps" style="display:none">
+      <div class="dcard-title">Checklist</div>
+      <div id="dp-steps-list"></div>
+    </div>
+    <div class="dcard" id="dp-blocks-card" style="display:none">
+      <div class="dcard-title">Blocks / Blocked by</div>
+      <div class="dp-chips" id="dp-block-chips"></div>
+    </div>
+    <div class="dcard">
+      <div class="dcard-title">Dates</div>
+      <div class="drow" id="dp-created-row"><span>Created</span><span class="rt" id="dp-created">—</span></div>
+      <div class="drow" id="dp-due-row"><span>Due</span><span class="rt"><span id="dp-due-lbl"></span><input type="date" id="dp-due-input" class="detail-inline-date" onchange="saveDueDate(this.value)"></span></div>
+      <div class="drow" id="dp-completed-row" style="display:none"><span>Completed</span><span class="rt"><span id="dp-completed-lbl"></span><input type="date" id="dp-completed-input" class="detail-inline-date" onchange="saveCompletedAt(this.value)"></span></div>
+      <div class="drow" id="dp-time-row" style="display:none"><span>Time</span><span class="rt" id="dp-time"></span></div>
+    </div>
+    <div class="dcard" id="dp-history" style="display:none;margin-bottom:0">
+      <div class="dcard-title">History</div>
+      <div id="dp-history-list"></div>
     </div>
   </div>
 </div>
@@ -546,25 +499,20 @@ window.__fbReady = new Promise(resolve => {
 <!-- ── Bottom navigation bar (mobile only) ───────────────────────── -->
 <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation">
   <div class="bottom-nav-inner">
-    <button class="bn-tab active" id="bnt-dashboard" onclick="setView('dashboard')" aria-label="Dashboard">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Dashboard
+    <button class="bn-tab active" id="bnt-dashboard" onclick="setView('dashboard')" aria-label="Dashboard" title="Dashboard">
+      <svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
     </button>
-    <button class="bn-tab" id="bnt-history" onclick="setView('history')" aria-label="History">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-      History
+    <button class="bn-tab" id="bnt-history" onclick="setView('history')" aria-label="History" title="History">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     </button>
-    <button class="bn-tab" id="bnt-gamify" onclick="setView('gamify')" aria-label="Progress">
-      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Progress
+    <button class="bn-tab" id="bnt-gamify" onclick="setView('gamify')" aria-label="Progress" title="Progress">
+      <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
     </button>
-    <button class="bn-tab" id="bnt-archive" onclick="setView('archive')" aria-label="Archive">
-      <svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-      Archive
+    <button class="bn-tab" id="bnt-archive" onclick="setView('archive')" aria-label="Archive" title="Archive">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 6l2 14h14l2-14M8 10v6M16 10v6"/></svg>
     </button>
-    <button class="bn-tab" id="bnt-settings" onclick="setView('settings')" aria-label="Settings">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Settings
+    <button class="bn-tab" id="bnt-settings" onclick="setView('settings')" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3H15a1.7 1.7 0 00-1 1.6V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6h-.1a1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9V15a1.7 1.7 0 00-1.6-1H2a2 2 0 110-4h.1A1.7 1.7 0 004.6 6l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.6V2a2 2 0 114 0v.1a1.7 1.7 0 001 1.6h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.6 1H22a2 2 0 110 4h-.1a1.7 1.7 0 00-1.6 1z"/></svg>
     </button>
   </div>
 </nav>
