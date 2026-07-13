@@ -852,10 +852,9 @@ function renderCalendar(){
     el.className='hist-cal-cell'+(isToday?' today-hist':'');
     const n=document.createElement('span');n.textContent=day;el.appendChild(n);
     if(inc.length){
-      const hi=inc.some(t=>t.priority==='high');const mi=inc.some(t=>t.priority==='medium');
-      const dot=document.createElement('span');dot.className='hist-cal-dot';
-      if(!isToday)dot.style.background=hi?'var(--p-high)':mi?'var(--p-med)':'var(--p-low)';
-      el.appendChild(dot);
+      const sup=document.createElement('span');sup.className='hist-cal-count';sup.textContent=inc.length;
+      if(!isToday){const hi=inc.some(t=>t.priority==='high');const mi=inc.some(t=>t.priority==='medium');sup.style.color=hi?'var(--p-high)':mi?'var(--p-med)':'var(--p-low)';}
+      el.appendChild(sup);
     }
     el.addEventListener('click',function(){showDayTasks(ds);});
     c.appendChild(el);
@@ -2662,10 +2661,8 @@ function renderHistCalendar(buckets){
     const el=document.createElement('div');
     el.className='hist-cal-cell'+(isToday?' today-hist':'');
     const n=document.createElement('span');n.textContent=day;el.appendChild(n);
-    if(count||isToday){
-      const dot=document.createElement('span');dot.className='hist-cal-dot';
-      if(!count)dot.style.opacity='0';
-      el.appendChild(dot);
+    if(count){
+      const sup=document.createElement('span');sup.className='hist-cal-count';sup.textContent=count;el.appendChild(sup);
     }
     el.addEventListener('click',function(){showHistDayTasks(ds,buckets[ds]||[]);});
     c.appendChild(el);

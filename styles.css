@@ -3,7 +3,7 @@
 /* ── Exact tokens from Claude Design "Tracker Dashboard Redesign" handoff (theme() object) ── */
 :root{
   --font-display:'Bricolage Grotesque',sans-serif;
-  --bg-app:#f5efe6;--bg-sidebar:#efe4d3;--bg-card:#ffffff;--bg-surface:#efe7db;--bg-track:#efe7db;
+  --bg-app:#ffffff;--bg-sidebar:#efe4d3;--bg-card:#ffffff;--bg-surface:#efe7db;--bg-track:#efe7db;
   --input-bg:#ffffff;
   --text-main:#241c14;--text-dim:#5b4c3a;--text-muted:#a08b72;--border-color:#e6dcc8;
   --work-red:#e24b4a;--green:#1d9e75;--purple:#3b6ef2;--purple-light:#e8f1fb;--red:#c0403f;
@@ -22,7 +22,7 @@
   --card-shadow-soft:0 3px 12px -6px rgba(120,80,40,.25);--card-shadow-strong:0 4px 14px -8px rgba(120,80,40,.3);
 }
 body.dark-mode{
-  --bg-app:#1b1712;--bg-sidebar:#141110;--bg-card:#241f18;--bg-surface:#2a251d;--bg-track:#332c22;
+  --bg-app:#000000;--bg-sidebar:#141110;--bg-card:#241f18;--bg-surface:#2a251d;--bg-track:#332c22;
   --input-bg:#2a251d;
   --text-main:#efe7da;--text-dim:#efe7da;--text-muted:#a3947e;--border-color:#3a332a;--purple-light:#1c2a3a;
   --grad:#f4795b;--purple:#3b6ef2;--green:#4bbd90;--red:#ff8b7a;
@@ -217,6 +217,8 @@ body.dark-mode .matrix-v-item{border-bottom-color:rgba(255,255,255,.07)}
 .hist-cal-cell.today-hist{background:#3b6ef2;color:#fff}
 .hist-cal-dot{width:4px;height:4px;border-radius:50%;background:var(--green)}
 .hist-cal-cell.today-hist .hist-cal-dot{background:#fff}
+.hist-cal-count{position:absolute;top:1px;right:2px;font-size:8px;font-weight:800;line-height:1;color:var(--purple)}
+.hist-cal-cell.today-hist .hist-cal-count{color:#fff}
 .collapse-all-btn{font-size:11.5px;font-weight:700;color:var(--text-muted);background:none;border:none;padding:0;cursor:pointer;font-family:inherit}
 .hg-card{background:var(--bg-card);border-radius:16px;overflow:hidden;margin-bottom:10px}
 .hg-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;cursor:pointer;user-select:none}
