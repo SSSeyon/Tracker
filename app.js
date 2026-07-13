@@ -800,7 +800,7 @@ function renderStatsView(){
   const splitEl=document.getElementById('cat-split');
   if(splitEl){
     const tot=tasks.length||1;
-    const rows=[['Work',work.length,'#3b6ef2'],['Personal',personal.length,'#f4795b']];
+    const rows=[['Work',work.length,'#3b6ef2'],['Personal',personal.length,'#1d9e75']];
     loadCategories().forEach(function(c){
       if(c.id==='work'||c.id==='personal')return;
       const n=tasks.filter(t=>t.category===c.id).length;
@@ -813,7 +813,7 @@ function renderStatsView(){
   const ccEl=document.getElementById('cat-completion-box');
   if(ccEl){
     ccEl.innerHTML='<div><div class="pc-lbl">Work</div><div style="font-size:22px;font-weight:800;font-family:var(--font-display);color:var(--due-val)">'+workPct+'%</div></div>'
-      +'<div><div class="pc-lbl">Personal</div><div style="font-size:22px;font-weight:800;font-family:var(--font-display);color:#f4795b">'+personalPct+'%</div></div>';
+      +'<div><div class="pc-lbl">Personal</div><div style="font-size:22px;font-weight:800;font-family:var(--font-display);color:#1d9e75">'+personalPct+'%</div></div>';
   }
 }
 
@@ -1558,7 +1558,7 @@ function updateFocusRing(){
   if(!ring)return;
   if(_focusRunning||_focusSecs<_focusTotal){
     const deg=Math.round((1-_focusSecs/_focusTotal)*360);
-    ring.style.background='conic-gradient(#f4795b '+deg+'deg,var(--bg-track) 0)';
+    ring.style.background='conic-gradient(var(--grad) '+deg+'deg,var(--bg-track) 0)';
   } else {
     ring.style.background='var(--bg-track)';
   }
@@ -2023,7 +2023,7 @@ function closeOverlayBg(e){if(e.target.id==='overlay')closeModal()}
 function updateThemeColor(){
   const isDark=document.body.classList.contains('dark-mode');
   // Match --bg-app in styles.css so the browser chrome blends with the page
-  const colour=isDark?'#1b1712':'#f5efe6';
+  const colour=isDark?'#0f1216':'#eef0f4';
   const meta=document.getElementById('theme-color-meta');
   if(meta) meta.setAttribute('content', colour);
 }
