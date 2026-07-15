@@ -928,9 +928,9 @@ function openModalWithDate(){closeDayView();openModal();document.getElementById(
 function renderMatrixVisual(){
   ['1','2','3','4'].forEach(q=>{
     const list=document.getElementById(`q${q}-list`);if(!list)return;
-    // Design shows every task in its quadrant, done ones struck through
-    const qt=tasks.filter(t=>(t.matrix||'4')===q).slice(0,6);
-    list.innerHTML=qt.length?qt.map(t=>`<div class="matrix-v-item${t.status==='done'?' done':''}" title="${esc(t.name)}" onclick="showTaskDetail('${t.id}')">${esc(t.name)}</div>`).join(''):`<div style="font-size:11px;opacity:.6;padding:2px 0">No tasks</div>`;
+    // Show only incomplete tasks in each quadrant (dashboard is forward-looking, not history)
+    const qt=tasks.filter(t=>(t.matrix||'4')===q&&t.status!=='done').slice(0,6);
+    list.innerHTML=qt.length?qt.map(t=>`<div class="matrix-v-item" title="${esc(t.name)}" onclick="showTaskDetail('${t.id}')">${esc(t.name)}</div>`).join(''):`<div style="font-size:11px;opacity:.6;padding:2px 0">No tasks</div>`;
   });
 }
 
@@ -1122,6 +1122,8 @@ function render(){
       const mVal=t.matrix||'4';
       const mLabel=mVal==='1'?'Do First':mVal==='2'?'Schedule':mVal==='3'?'Delegate':'Eliminate';
       const isDone=t.status==='done';
+      const effDue=effectiveDueDate(t);
+      const isOverdue=!isDone&&effDue&&effDue<now;
       // Due-date pill — colored per urgency (overdue red / today blue / upcoming grey), matching design dueMap
       let duePill='';
       if(t.dueDate&&!isDone){
@@ -1145,7 +1147,7 @@ function render(){
       const ringDeg=Math.round(prog*3.6);
       const ringStyle=isDone?'':'background:conic-gradient(var(--purple) '+ringDeg+'deg,var(--bg-track) 0)';
       const ringInner=isDone?'✓':Math.round(prog);
-      return '<div class="task-card'+(isDone?' is-done':'')+'"><div class="tc-stripe" style="background:'+priColor+'"></div><button class="tc-del" aria-label="Delete task" title="Delete task" onclick="deleteCard(event,\''+t.id+'\')">&#215;</button><div class="task-card-row"><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div>'+stepRow+'</div><div class="tc-check'+(isDone?' checked':'')+'" role="button" aria-label="'+(isDone?'Mark task not done':'Mark task done')+'" aria-pressed="'+(isDone?'true':'false')+'" style="'+ringStyle+'" onclick="toggleDone(\''+t.id+'\',event)"><span class="tc-check-inner">'+ringInner+'</span></div></div></div>';
+      return '<div class="task-card'+(isDone?' is-done':'')+(isOverdue?' overdue':'')+'"><div class="tc-stripe" style="background:'+priColor+'"></div><button class="tc-del" aria-label="Delete task" title="Delete task" onclick="deleteCard(event,\''+t.id+'\')">&#215;</button><div class="task-card-row"><div class="tc-body" onclick="showTaskDetail(\''+t.id+'\')"><div class="tc-title'+(isDone?' done':'')+'">'+cardTitle+'</div><div class="tc-meta">'+meta+'</div>'+stepRow+'</div><div class="tc-check'+(isDone?' checked':'')+'" role="button" aria-label="'+(isDone?'Mark task not done':'Mark task done')+'" aria-pressed="'+(isDone?'true':'false')+'" style="'+ringStyle+'" onclick="toggleDone(\''+t.id+'\',event)"><span class="tc-check-inner">'+ringInner+'</span></div></div></div>';
     }
 
     const renderFn=taskView==='rows'?rowHTML:cardHTML;

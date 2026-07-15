@@ -1,4 +1,4 @@
-const CACHE = 'tracker-v19';
+const CACHE = 'tracker-v20';
 const NOTIF_CACHE = 'tracker-notif-slots'; // separate, version-independent cache for dedup keys
 const OFFLINE_URL = './index.html';
 

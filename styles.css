@@ -12,7 +12,7 @@
   --q1:var(--q1-c);--q2:var(--q2-c);--q3:var(--q3-c);--q4:var(--q4-c);
   --radius:16px;--radius-lg:20px;
   --grad:#378add;
-  --overdue-bg:#f5d6d7;--overdue-label:#cf4b4a;--overdue-val:#e24b4a;
+  --overdue-bg:#f5d6d7;--overdue-label:#cf4b4a;--overdue-val:#e24b4a;--overdue-card-bg:#FAEFEA;
   --due-val:#378add;--done-val:#1d9e75;
   --delete-bg:#fdecec;--delete-border:#f5cccc;--delete-text:#e24b4a;
   --handle-bg:#d3d8e0;--nav-inactive:#8a919e;
@@ -28,7 +28,7 @@ body.dark-mode{
   --grad:#4d9be3;--purple:#4d9be3;--green:#2cba8e;--red:#e24b4a;
   --p-med:#d99a3d;
   --q1-bg:#3a1f22;--q1-c:#f0908d;--q2-bg:#16283a;--q2-c:#7fb0ef;--q3-bg:#3a2c16;--q3-c:#e0a94d;--q4-bg:#23282f;--q4-c:#9aa7b8;
-  --overdue-bg:#3a1416;--overdue-label:#e08b7f;--overdue-val:#f47a6a;
+  --overdue-bg:#3a1416;--overdue-label:#e08b7f;--overdue-val:#f47a6a;--overdue-card-bg:#2b201a;
   --due-val:#4d9be3;--done-val:#2cba8e;
   --delete-bg:#3a1f22;--delete-border:#4a2a2c;--delete-text:#f0908d;
   --handle-bg:#3a4048;--nav-inactive:#6b7482;
@@ -119,6 +119,7 @@ body.dark-mode .nav-item.active{background:#2a251d}
 #task-list>.section-divider,#task-list>.empty-state,#task-list>.add-task-row{grid-column:1/-1}
 #done-section{display:contents}
 .task-card{position:relative;background:var(--bg-card);border-radius:18px;margin:0;overflow:hidden;box-shadow:var(--card-shadow-strong);cursor:pointer;align-self:start}
+.task-card.overdue{background:var(--overdue-card-bg)}
 .tc-stripe{height:5px}
 /* In-card delete — muted corner badge, hover-reveal on desktop, always faintly visible on touch.
    Tucked into the top-right corner above the progress ring; opaque bg + shadow so it reads as a floating badge. */
