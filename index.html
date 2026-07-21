@@ -210,7 +210,7 @@ window.__fbReady = new Promise(resolve => {
           <div class="pc-title">Custom categories</div>
           <div id="cats-list" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           <div style="display:flex;gap:6px;align-items:center">
-            <input class="mi" type="text" id="cat-name-input" placeholder="e.g. Side project" style="flex:1;padding:9px 12px;font-size:13px;min-width:0">
+            <textarea class="mi autogrow" id="cat-name-input" rows="1" placeholder="e.g. Side project" style="flex:1;padding:9px 12px;font-size:13px;min-width:0"></textarea>
             <input type="hidden" id="cat-color-pick" value="#3b6ef2">
             <button class="swatch active" data-swatch="#3b6ef2" style="background:#3b6ef2" onclick="pickCatColor(this)" aria-label="Blue"></button>
             <button class="swatch" data-swatch="#f4795b" style="background:#f4795b" onclick="pickCatColor(this)" aria-label="Coral"></button>
@@ -349,7 +349,7 @@ window.__fbReady = new Promise(resolve => {
     </div>
     <div class="mf">
       <label class="ml">Task name</label>
-      <input class="mi" id="f-name" type="text" placeholder="e.g. Finish Q3 board deck" autocomplete="off">
+      <textarea class="mi autogrow" id="f-name" rows="1" placeholder="e.g. Finish Q3 board deck" autocomplete="off"></textarea>
       <div id="task-autocomplete" style="display:none;border:1.5px solid var(--border-color);border-radius:10px;background:var(--bg-card);box-shadow:0 4px 16px rgba(0,0,0,0.1);overflow:hidden;margin-top:4px;max-height:200px;overflow-y:auto"></div>
     </div>
     <!-- Hidden selects hold the form state; the button groups below drive them -->

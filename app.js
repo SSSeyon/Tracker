@@ -248,6 +248,47 @@ let charts={category:null,trend:null};
 let renderTimer=null;
 function scheduleRender(){clearTimeout(renderTimer);renderTimer=setTimeout(render,60)}
 
+// ── Auto-growing text fields ──────────────────────────────────────────────
+// Task names and step text are free-form and often run long, so those fields
+// are <textarea class="mi autogrow"> rather than <input>: the text wraps at
+// the edge instead of scrolling sideways, and the box grows to fit.
+// Height must be reset to 'auto' before reading scrollHeight, otherwise the
+// box can only ever grow and never shrink back when text is deleted.
+function autoGrow(el){
+  if(!el||el.tagName!=='TEXTAREA')return;
+  el.style.height='auto';
+  // display:none reports scrollHeight 0 — leave the height alone rather than
+  // collapsing the box; it gets measured again once the container is shown
+  if(!el.scrollHeight)return;
+  // scrollHeight is the content+padding box. Everything here is border-box
+  // (the global * reset), so the border has to be added back or the last
+  // line sits 3px under the bottom edge and gets clipped.
+  const cs=getComputedStyle(el);
+  const adjust=cs.boxSizing==='border-box'
+    ? parseFloat(cs.borderTopWidth)+parseFloat(cs.borderBottomWidth)
+    : -(parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom));
+  el.style.height=(el.scrollHeight+adjust)+'px';
+}
+// scrollHeight is 0 while an element is display:none, so this must be called
+// after a modal/sheet is made visible, not before.
+function autoGrowAll(root){
+  (root||document).querySelectorAll('textarea.autogrow').forEach(autoGrow);
+}
+// Delegated, so fields rebuilt via innerHTML (modal steps) need no rebinding
+document.addEventListener('input',function(e){
+  const t=e.target;
+  if(t&&t.tagName==='TEXTAREA'&&t.classList.contains('autogrow'))autoGrow(t);
+});
+// These hold single-line values that get rendered into HTML elsewhere, so
+// Enter commits (blurs) instead of inserting a newline. Shift+Enter is left
+// alone in case a genuinely multi-line field is added later.
+document.addEventListener('keydown',function(e){
+  const t=e.target;
+  if(t&&t.tagName==='TEXTAREA'&&t.classList.contains('autogrow')&&e.key==='Enter'&&!e.shiftKey){
+    e.preventDefault();t.blur();
+  }
+});
+
 // ── Gamification ─────────────────────────────────────────────────────
 const GK = 'donezo_gamify';
 const XP_PER = {high:30, medium:20, low:10};
@@ -743,7 +784,8 @@ function renderModalSteps(){
   const c=document.getElementById('steps-list');if(!c)return;
   if(!window.currentModalSteps.length){c.innerHTML=`<div style="font-size:11.5px;font-weight:600;color:var(--text-muted);padding:2px 0 4px">No steps added</div>`;return}
   // Design step row: text input + delete square; the status cycle + per-step dates are app features kept below
-  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;align-items:center;gap:6px"><input class="mi" value="${esc(s.text)}" oninput="updateStepText('${s.id}',this.value)" placeholder="Step description…" style="flex:1;padding:9px 11px;font-size:13px"><button onclick="cycleStepStatus('${s.id}')" title="Status: ${s.status.replace('-',' ')} — click to cycle" style="width:30px;height:30px;border-radius:9px;border:1.5px solid var(--border-color);background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'var(--input-bg)'};cursor:pointer;flex-shrink:0"></button><button class="step-del" onclick="removeStep('${s.id}')" title="Remove step">✕</button></div><div style="display:flex;align-items:center;gap:8px;overflow-x:auto"><span class="ml" style="margin:0">Due</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" class="mi" style="width:auto;padding:5px 8px;font-size:11px"><span class="ml" style="margin:0">Time</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" class="mi" style="width:auto;padding:5px 8px;font-size:11px"></div></div>`).join('');
+  c.innerHTML=window.currentModalSteps.map(s=>`<div class="step-item" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;align-items:center;gap:6px"><textarea class="mi autogrow" rows="1" oninput="updateStepText('${s.id}',this.value)" placeholder="Step description…" style="flex:1;padding:9px 11px;font-size:13px">${esc(s.text)}</textarea><button onclick="cycleStepStatus('${s.id}')" title="Status: ${s.status.replace('-',' ')} — click to cycle" style="width:30px;height:30px;border-radius:9px;border:1.5px solid var(--border-color);background:${s.status==='completed'?'var(--green)':s.status==='in-progress'?'var(--purple)':'var(--input-bg)'};cursor:pointer;flex-shrink:0"></button><button class="step-del" onclick="removeStep('${s.id}')" title="Remove step">✕</button></div><div style="display:flex;align-items:center;gap:8px;overflow-x:auto"><span class="ml" style="margin:0">Due</span><input type="date" value="${s.dueDate||''}" onchange="updateStepDate('${s.id}',this.value)" class="mi" style="width:auto;padding:5px 8px;font-size:11px"><span class="ml" style="margin:0">Time</span><input type="time" value="${s.notifTime||''}" onchange="updateStepTime('${s.id}',this.value)" class="mi" style="width:auto;padding:5px 8px;font-size:11px"></div></div>`).join('');
+  autoGrowAll(c);
 }
 
 function getTrendData(){
@@ -1707,13 +1749,15 @@ function editFromDetail(){const id=detailTaskId;closeDetail();editTask(id)}
 function startTitleEdit(){
   const el=document.getElementById('dp-title');
   const t=tasks.find(function(x){return x.id===detailTaskId;});
-  if(!el||!t||el.querySelector('input'))return;
-  const inp=document.createElement('input');
-  inp.type='text';
+  if(!el||!t||el.querySelector('textarea'))return;
+  const inp=document.createElement('textarea');
+  inp.className='autogrow';
+  inp.rows=1;
   inp.value=t.name;
-  inp.style.cssText='width:100%;font-family:inherit;font-size:inherit;font-weight:inherit;background:transparent;border:none;border-bottom:2px solid var(--purple);color:var(--text-main);outline:none;padding:0';
+  inp.style.cssText='width:100%;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:1.3;background:transparent;border:none;border-bottom:2px solid var(--purple);color:var(--text-main);outline:none;padding:0;resize:none;overflow:hidden;display:block';
   el.innerHTML='';
   el.appendChild(inp);
+  autoGrow(inp);
   inp.focus();
   inp.select();
   let settled=false;
@@ -1896,7 +1940,7 @@ function openModal(){
   renderModalSteps();
   refreshCategorySelect();
   document.getElementById('overlay').classList.add('open');
-  setTimeout(()=>{document.getElementById('f-name').focus();initTaskAutocomplete();},200);
+  setTimeout(()=>{document.getElementById('f-name').focus();initTaskAutocomplete();autoGrowAll(document.getElementById('overlay'));},200);
 }
 
 function editTask(id){
@@ -1917,7 +1961,7 @@ function editTask(id){
   document.getElementById('f-cat').value=t.category;
   refreshModalSegs();
   document.getElementById('overlay').classList.add('open');
-  setTimeout(()=>document.getElementById('f-name').focus(),200);
+  setTimeout(()=>{document.getElementById('f-name').focus();autoGrowAll(document.getElementById('overlay'));},200);
 }
 
 function saveTask(){
